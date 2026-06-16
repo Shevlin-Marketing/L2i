@@ -1,0 +1,1613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>L2i Productions — CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ============================================================
+   L2i "DAILIES" THEME — token system
+   ============================================================ */
+:root{
+  --raw-stock:#172231;
+  --raw-stock-2:#1B2738;
+  --slate:#1F2C3F;
+  --slate-2:#25334A;
+  --slate-border:#36475F;
+  --tally-amber:#D4B97A;
+  --tally-amber-dim:#8C7750;
+  --scope-teal:#ECD2A6;
+  --scope-teal-dim:#7A6B4D;
+  --bone:#F2E9D8;
+  --ash:#8C93A3;
+  --ash-dim:#5B6275;
+  --danger:#C75450;
+  --good:#7FAE8C;
+  --black:#000000;
+  --radius:10px;
+  --radius-sm:6px;
+  --font-display:'Poppins', sans-serif;
+  --font-body:'Inter', system-ui, sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--raw-stock);color:var(--bone);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
+body{
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(217,142,43,0.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(79,168,157,0.05), transparent 45%);
+  min-height:100vh;
+}
+#app{min-height:100vh;display:flex;flex-direction:column;}
+a{color:var(--tally-amber);text-decoration:none;}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:0.02em;margin:0;text-transform:uppercase;}
+input,select,textarea,button{font-family:var(--font-body);font-size:16px;}
+input,select,textarea{
+  background:var(--slate-2);border:1px solid var(--slate-border);color:var(--bone);
+  border-radius:var(--radius-sm);padding:10px 12px;width:100%;outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--tally-amber);}
+label{display:block;font-size:12px;color:var(--ash);margin:14px 0 5px;text-transform:uppercase;letter-spacing:0.06em;}
+button{
+  cursor:pointer;border:none;border-radius:var(--radius-sm);padding:10px 16px;
+  font-weight:600;font-size:14px;letter-spacing:0.02em;
+}
+.btn-primary{background:var(--black);color:var(--bone);border:1px solid var(--tally-amber);}
+.btn-primary:hover{background:#161616;border-color:var(--scope-teal);}
+.btn-ghost{background:transparent;color:var(--bone);border:1px solid var(--slate-border);}
+.btn-ghost:hover{border-color:var(--ash);}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+.btn-sm{padding:6px 10px;font-size:12px;}
+.muted{color:var(--ash);}
+.mono{font-family:var(--font-mono);}
+
+/* ---------- login ---------- */
+.login-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-card{width:100%;max-width:360px;background:var(--slate);border:1px solid var(--slate-border);border-radius:var(--radius);padding:32px 24px;}
+.login-logo{font-family:var(--font-display);font-size:30px;color:var(--bone);text-align:center;}
+.login-logo span{color:var(--tally-amber);}
+.login-sub{text-align:center;color:var(--ash);font-size:13px;margin-top:4px;margin-bottom:24px;}
+.build-tag{text-align:center;color:var(--ash-dim);font-size:11px;margin-top:18px;font-family:var(--font-mono);}
+.error-msg{color:var(--danger);font-size:13px;margin-top:10px;}
+
+/* ---------- shell ---------- */
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:12px 16px;
+  background:var(--slate);border-bottom:1px solid var(--slate-border);
+  position:sticky;top:0;z-index:20;flex-wrap:wrap;
+}
+.brand{font-family:var(--font-display);font-size:20px;white-space:nowrap;}
+.brand span{color:var(--tally-amber);}
+.project-switch{position:relative;}
+.project-switch select{padding:8px 30px 8px 12px;min-width:160px;}
+.spacer{flex:1;}
+.role-pill{
+  font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+  border:1px solid var(--scope-teal-dim);color:var(--scope-teal);
+  padding:4px 9px;border-radius:20px;
+}
+.pipeline-tabs{display:flex;gap:6px;padding:10px 16px 0;}
+.pipeline-tab{
+  background:transparent;border:1px solid var(--slate-border);color:var(--ash);
+  padding:8px 14px;border-radius:8px 8px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;
+}
+.pipeline-tab.active{background:var(--slate);color:var(--bone);border-bottom-color:var(--slate);}
+.sub-tabs{display:flex;gap:8px;padding:12px 16px 0;}
+.sub-tab{background:transparent;border:none;color:var(--ash);padding:6px 4px;font-size:13px;border-bottom:2px solid transparent;}
+.sub-tab.active{color:var(--tally-amber);border-bottom-color:var(--tally-amber);}
+
+main{flex:1;padding:16px;max-width:1400px;margin:0 auto;width:100%;}
+.board-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.board-header h2{font-size:18px;}
+
+/* ---------- kanban ---------- */
+.board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;}
+.column{
+  background:var(--slate);border:1px solid var(--slate-border);border-radius:var(--radius);
+  min-width:260px;flex:0 0 260px;scroll-snap-align:start;display:flex;flex-direction:column;max-height:calc(100vh - 230px);
+}
+.column-head{
+  padding:12px 14px;border-bottom:1px solid var(--slate-border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.column-title{font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ash);}
+.column-count{font-family:var(--font-mono);font-size:12px;color:var(--ash);}
+.column-body{padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+
+.card{
+  background:var(--slate-2);border:1px solid var(--slate-border);border-radius:var(--radius-sm);
+  padding:12px;cursor:pointer;transition:border-color .15s;
+}
+.card:hover{border-color:var(--ash);}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.slate-tag{font-family:var(--font-display);font-size:13px;color:var(--tally-amber);white-space:nowrap;}
+.tally-dot{
+  font-size:14px;line-height:1;color:var(--tally-amber);flex-shrink:0;margin-top:1px;
+  animation:starpulse 1.7s infinite;
+}
+@keyframes starpulse{
+  0%,100%{opacity:1;transform:scale(1);}
+  50%{opacity:0.5;transform:scale(1.3);}
+}
+.card-title{font-size:14px;font-weight:600;margin-top:6px;}
+.card-meta{font-size:12px;color:var(--ash);margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;}
+.day-counter{font-family:var(--font-mono);color:var(--scope-teal);}
+.card-value{font-family:var(--font-mono);color:var(--tally-amber);font-size:13px;margin-top:4px;}
+.empty-col{color:var(--ash-dim);font-size:12px;text-align:center;padding:18px 6px;}
+
+/* ---------- modal ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:flex-end;
+  justify-content:center;z-index:50;
+}
+@media(min-width:640px){.overlay{align-items:center;}}
+.modal{
+  background:var(--slate);border:1px solid var(--slate-border);border-radius:var(--radius) var(--radius) 0 0;
+  width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:20px;
+}
+@media(min-width:640px){.modal{border-radius:var(--radius);}}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.modal-close{background:transparent;color:var(--ash);font-size:20px;padding:2px 8px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+
+/* ---------- activity feed ---------- */
+.feed{margin-top:24px;border-top:1px solid var(--slate-border);padding-top:14px;}
+.feed h3{font-size:13px;color:var(--ash);letter-spacing:0.06em;margin-bottom:10px;}
+.feed-item{font-size:13px;padding:7px 0;border-bottom:1px solid var(--slate-border);}
+.feed-item .who{color:var(--scope-teal);}
+.feed-time{color:var(--ash-dim);font-size:11px;font-family:var(--font-mono);}
+
+/* ---------- team table ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:var(--ash);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid var(--slate-border);}
+td{padding:8px 10px;border-bottom:1px solid var(--slate-border);}
+
+/* ---------- toast ---------- */
+/* ---------- training (Setter Academy) ---------- */
+.module-card{background:var(--slate);border:1px solid var(--slate-border);border-radius:var(--radius);padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;}
+.module-card.locked{opacity:0.5;}
+.module-num{font-family:var(--font-mono);color:var(--tally-amber);font-size:13px;min-width:28px;}
+.module-info{flex:1;}
+.module-title{font-weight:700;font-size:15px;}
+.module-status{font-size:12px;color:var(--ash);margin-top:3px;}
+.pass-badge{font-size:11px;color:var(--good);border:1px solid var(--good);padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.progress-bar-track{height:6px;background:var(--slate-2);border-radius:4px;overflow:hidden;}
+.progress-bar-fill{height:100%;background:var(--tally-amber);}
+.lesson-nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.lesson-dot{width:28px;height:28px;border-radius:50%;background:var(--slate-2);border:1px solid var(--slate-border);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:var(--font-mono);color:var(--ash);}
+.lesson-dot.done{background:var(--tally-amber);color:var(--black);border-color:var(--tally-amber);}
+.lesson-dot.active{border-color:var(--scope-teal);color:var(--scope-teal);}
+.lesson-content p{line-height:1.65;margin:0 0 14px;font-size:15px;}
+.pending-box{border:1px dashed var(--tally-amber-dim);border-radius:var(--radius-sm);padding:14px;background:var(--slate-2);font-size:13px;color:var(--scope-teal);}
+.pending-box p{line-height:1.6;margin:0 0 10px;}
+.quiz-q{background:var(--slate);border:1px solid var(--slate-border);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+.quiz-q-title{font-weight:600;margin-bottom:10px;font-size:14px;}
+.quiz-opt{display:block;width:100%;text-align:left;background:var(--slate-2);border:1px solid var(--slate-border);color:var(--bone);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;font-size:14px;font-weight:400;}
+.quiz-opt.selected{border-color:var(--scope-teal);}
+.result-card{text-align:center;padding:30px 20px;}
+.result-score{font-family:var(--font-display);font-size:48px;color:var(--tally-amber);}
+.back-link{font-size:13px;color:var(--ash);margin-bottom:14px;display:inline-block;}
+
+#toast{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  background:var(--slate-2);border:1px solid var(--slate-border);color:var(--bone);
+  padding:10px 18px;border-radius:8px;font-size:13px;z-index:100;display:none;
+}
+#toast.error{border-color:var(--danger);color:var(--danger);}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--ash);}
+.badge-unassigned{display:inline-block;font-size:11px;color:var(--danger);border:1px solid var(--danger);padding:2px 7px;border-radius:20px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG — paste your new Supabase project's values here
+   ============================================================ */
+const SUPABASE_URL = "https://pqdcbmiwqmyqzbwqzjvd.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_qAP1ZA0comG-PL69uHlWCQ_YK08P6-D";
+const BUILD_NUMBER = 1;
+const LOGO_B64 = "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";
+
+let sb = null;
+let CONFIGURED = false;
+try{
+  const urlLooksReal = SUPABASE_URL.indexOf("http") === 0;
+  const keyLooksReal = SUPABASE_ANON_KEY.indexOf("PASTE") !== 0 && SUPABASE_ANON_KEY.length > 20;
+  if(typeof window.supabase !== "undefined" && urlLooksReal && keyLooksReal){
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    CONFIGURED = true;
+  }
+}catch(e){
+  console.error("Supabase client failed to initialise:", e);
+  CONFIGURED = false;
+}
+
+const LEAD_STAGES = [
+  ["new","New"],["contacted","Contacted"],["pitched","Pitched"],["booked","Booked"],
+  ["proposal_sent","Proposal Sent"],["converted","Converted"],["lost","Lost"]
+];
+const DEAL_STAGES = [
+  ["negotiating","Negotiating"],["contract_sent","Contract Sent"],
+  ["won","Won"],["lost","Lost"]
+];
+const ROLES = [
+  ["owner","Owner / Admin"],["business_development","Business Development"],
+  ["team_leader","Team Leader"],["coach","Coach"],
+  ["closer","Closer"],["setter","Setter"]
+];
+
+let state = {
+  user:null, profile:null, allProfiles:[],
+  projects:[], currentProjectId:null,
+  pipeline:"acquisition", subTab:"leads",
+  leads:[], deals:[], productions:[], activity:[], stages:[], notifications:[],
+  loading:true
+};
+
+const $app = document.getElementById("app");
+const $toast = document.getElementById("toast");
+
+function toast(msg, isError){
+  $toast.textContent = msg;
+  $toast.className = isError ? "error" : "";
+  $toast.style.display = "block";
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ $toast.style.display="none"; }, 3200);
+}
+
+function esc(str){
+  if(str===null||str===undefined) return "";
+  return String(str).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function fmtMoney(n){
+  if(n===null||n===undefined||n==="") return "—";
+  return "£" + Number(n).toLocaleString();
+}
+function fmtDate(d){
+  if(!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+}
+function daysSince(d){
+  if(!d) return 0;
+  const ms = new Date().setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0);
+  return Math.max(0, Math.round(ms / 86400000));
+}
+function timeAgo(d){
+  const s = Math.floor((Date.now() - new Date(d).getTime())/1000);
+  if(s<60) return "just now";
+  if(s<3600) return Math.floor(s/60)+"m ago";
+  if(s<86400) return Math.floor(s/3600)+"h ago";
+  return Math.floor(s/86400)+"d ago";
+}
+function profileName(id){
+  const p = state.allProfiles.find(p=>p.id===id);
+  return p ? p.full_name : "Unassigned";
+}
+function isRole(...roles){ return state.profile && roles.includes(state.profile.role); }
+function isOwnerOrBd(){ return isRole("owner","business_development"); }
+function canManageLeads(){ return isRole("owner","team_leader","business_development","setter"); }
+function canManageDeals(){ return isRole("owner","team_leader","business_development","closer"); }
+function isOwnerOrTeamLead(){ return isRole("owner","team_leader"); }
+function canManageProductions(){ return isRole("owner","team_leader","business_development"); }
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+async function init(){
+  if(!CONFIGURED){
+    renderSetupNeeded();
+    return;
+  }
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){
+    state.user = session.user;
+    await loadEverything();
+  } else {
+    state.loading = false;
+    renderLogin();
+  }
+}
+
+async function loadEverything(){
+  const { data: profile, error: pErr } = await sb.from("profiles").select("*").eq("id", state.user.id).single();
+  if(pErr || !profile){
+    toast("Your profile wasn't found — try signing out and back in.", true);
+    await sb.auth.signOut();
+    state.user = null; state.loading=false;
+    renderLogin("signin");
+    return;
+  }
+  state.profile = profile;
+  if(!profile.approved){
+    state.loading = false;
+    renderPendingApproval();
+    return;
+  }
+
+  const [{data:allProfiles}, {data:projects}] = await Promise.all([
+    sb.from("profiles").select("*").order("full_name"),
+    sb.from("projects").select("*").eq("archived", false).order("created_at")
+  ]);
+  state.allProfiles = allProfiles || [];
+  state.projects = projects || [];
+  if(!state.currentProjectId && state.projects.length){
+    state.currentProjectId = state.projects[0].id;
+  }
+  state.loading = false;
+  await loadProjectData();
+  renderShell();
+}
+
+async function loadProjectData(){
+  if(!state.currentProjectId) return;
+  const pid = state.currentProjectId;
+  const [{data:leads},{data:deals},{data:productions},{data:activity},{data:stages},{data:notifications}] = await Promise.all([
+    sb.from("leads").select("*").eq("project_id", pid).order("created_at",{ascending:false}),
+    sb.from("deals").select("*").eq("project_id", pid).order("created_at",{ascending:false}),
+    sb.from("productions").select("*").eq("project_id", pid).order("slate_number",{ascending:false}),
+    sb.from("activity_log").select("*").eq("project_id", pid).order("created_at",{ascending:false}).limit(25),
+    sb.from("pipeline_stages").select("*").eq("project_id", pid).order("sort_order",{ascending:true}),
+    sb.from("notifications").select("*").eq("project_id", pid).order("created_at",{ascending:false}).limit(50)
+  ]);
+  state.leads = leads || [];
+  state.deals = deals || [];
+  state.productions = productions || [];
+  state.activity = activity || [];
+  state.stages = stages || [];
+  state.notifications = notifications || [];
+}
+
+async function logActivity(entity_type, entity_id, action, details){
+  await sb.from("activity_log").insert({
+    project_id: state.currentProjectId, entity_type, entity_id,
+    user_id: state.user.id, action, details: details || {}
+  });
+}
+
+/* ============================================================
+   SETUP-NEEDED VIEW — shown until real Supabase credentials are added
+   ============================================================ */
+function renderSetupNeeded(){
+  $app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card" style="max-width:420px;">
+        <img src="data:image/png;base64,${LOGO_B64}" alt="L2i Productions" style="width:72px;height:72px;display:block;margin:0 auto 12px;border-radius:50%;">
+        <div class="login-logo">L2<span>i</span> PRODUCTIONS</div>
+        <div class="login-sub">CRM setup</div>
+        <p style="font-size:13px;line-height:1.6;color:var(--bone);">
+          This page is waiting on two things near the top of the script:
+        </p>
+        <p class="mono" style="font-size:12px;color:var(--tally-amber);background:var(--slate-2);padding:10px;border-radius:6px;">
+          SUPABASE_URL<br>SUPABASE_ANON_KEY
+        </p>
+        <p style="font-size:13px;line-height:1.6;color:var(--ash);">
+          Create a Supabase project, run the schema, then paste the Project URL and anon key in. Once that's done, open this page from its live hosted address — not from a preview pane — to sign in.
+        </p>
+        <div class="build-tag">L2i CRM — Build ${BUILD_NUMBER}</div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   LOGIN VIEW
+   ============================================================ */
+function renderLogin(mode){
+  mode = mode || "signin";
+  $app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <img src="data:image/png;base64,${LOGO_B64}" alt="L2i Productions" style="width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:50%;">
+        <div class="login-logo">L2<span>i</span> PRODUCTIONS</div>
+        <div class="login-sub">CRM — ${mode==="signin"?"sign in":"create your account"}</div>
+        <form id="authForm">
+          ${mode==="signup"?`<label>Full name</label><input type="text" id="authName" required>`:""}
+          <label>Email</label>
+          <input type="email" id="authEmail" required autocomplete="username">
+          <label>Password</label>
+          <input type="password" id="authPassword" required autocomplete="${mode==='signin'?'current-password':'new-password'}" minlength="8">
+          <button type="submit" class="btn-primary" style="width:100%;margin-top:20px;">${mode==="signin"?"Sign in":"Create account"}</button>
+          <div class="error-msg" id="authError"></div>
+        </form>
+        <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ash);">
+          ${mode==="signin"
+            ? `New here? <a href="#" id="toSignup">Create an account</a>`
+            : `Already have one? <a href="#" id="toSignin">Sign in</a>`}
+        </div>
+        <div class="build-tag">L2i CRM — Build ${BUILD_NUMBER}</div>
+      </div>
+    </div>`;
+  document.getElementById("authForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    const errEl = document.getElementById("authError");
+    errEl.textContent = "";
+    if(mode === "signin"){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error){ errEl.textContent = error.message; return; }
+      state.user = data.user;
+      await loadEverything();
+    } else {
+      const fullName = document.getElementById("authName").value.trim();
+      const { data, error } = await sb.auth.signUp({
+        email, password, options: { data: { full_name: fullName } }
+      });
+      if(error){ errEl.textContent = error.message; return; }
+      if(data.session){
+        state.user = data.user;
+        await loadEverything();
+      } else {
+        renderCheckEmail(email);
+      }
+    }
+  });
+  const toSignup = document.getElementById("toSignup");
+  if(toSignup) toSignup.addEventListener("click", (e)=>{ e.preventDefault(); renderLogin("signup"); });
+  const toSignin = document.getElementById("toSignin");
+  if(toSignin) toSignin.addEventListener("click", (e)=>{ e.preventDefault(); renderLogin("signin"); });
+}
+
+function renderCheckEmail(email){
+  $app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <img src="data:image/png;base64,${LOGO_B64}" alt="L2i Productions" style="width:72px;height:72px;display:block;margin:0 auto 12px;border-radius:50%;">
+        <div class="login-logo">L2<span>i</span> PRODUCTIONS</div>
+        <div class="login-sub">Almost there</div>
+        <p style="font-size:13px;line-height:1.6;">
+          We've sent a confirmation link to <strong>${esc(email)}</strong>. Click it, then come back and sign in.
+          Once you're in, the owner still needs to approve your account and set your role before you'll see any data.
+        </p>
+        <button class="btn-ghost" style="width:100%;margin-top:10px;" id="backToSignin">Back to sign in</button>
+      </div>
+    </div>`;
+  document.getElementById("backToSignin").addEventListener("click", ()=>renderLogin("signin"));
+}
+
+function renderPendingApproval(){
+  $app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <img src="data:image/png;base64,${LOGO_B64}" alt="L2i Productions" style="width:72px;height:72px;display:block;margin:0 auto 12px;border-radius:50%;">
+        <div class="login-logo">L2<span>i</span> PRODUCTIONS</div>
+        <div class="login-sub">Account pending approval</div>
+        <p style="font-size:13px;line-height:1.6;color:var(--ash);">
+          You're signed in, but the owner hasn't approved your account yet. Once they do, and set your role,
+          reload this page and you'll have access.
+        </p>
+        <button class="btn-ghost" style="width:100%;margin-top:10px;" id="pendingSignOut">Sign out</button>
+      </div>
+    </div>`;
+  document.getElementById("pendingSignOut").addEventListener("click", signOut);
+}
+
+async function signOut(){
+  await sb.auth.signOut();
+  state = {user:null, profile:null, allProfiles:[], projects:[], currentProjectId:null,
+    pipeline:"acquisition", subTab:"leads", leads:[], deals:[], productions:[], activity:[],
+    stages:[], notifications:[],
+    training:{ loaded:false, view:"home", moduleKey:null, lessonIndex:0, quizAnswers:[], progress:{}, allProgress:[], lastScore:0, lastPassed:false, lastCorrect:0, lastTotal:0 },
+    loading:false};
+  renderLogin();
+}
+
+/* ============================================================
+   SHELL
+   ============================================================ */
+function renderShell(){
+  const proj = state.projects.find(p=>p.id===state.currentProjectId);
+  $app.innerHTML = `
+    <div class="topbar">
+      <div class="brand"><img src="data:image/png;base64,${LOGO_B64}" alt="" style="width:28px;height:28px;border-radius:50%;vertical-align:middle;margin-right:6px;">L2<span>i</span></div>
+      <div class="project-switch">
+        <select id="projectSelect">
+          ${state.projects.map(p=>`<option value="${p.id}" ${p.id===state.currentProjectId?"selected":""}>${esc(p.name)}</option>`).join("")}
+        </select>
+      </div>
+      ${isRole("owner") ? `<button class="btn-ghost btn-sm" id="manageProjectsBtn">Manage projects</button>` : ""}
+      ${isRole("owner") ? `<button class="btn-ghost btn-sm" id="teamBtn">Team</button>` : ""}
+      ${isOwnerOrTeamLead() ? `<button class="btn-ghost btn-sm" id="reportBtn">Report${state.notifications.length?` (${state.notifications.length})`:""}</button>` : ""}
+      <div class="spacer"></div>
+      <span class="role-pill">${esc(roleLabel(state.profile.role))}</span>
+      <button class="btn-ghost btn-sm" id="signOutBtn">Sign out</button>
+    </div>
+    <div class="pipeline-tabs">
+      <button class="pipeline-tab ${state.pipeline==='acquisition'?'active':''}" data-pipeline="acquisition">Acquisition</button>
+      <button class="pipeline-tab ${state.pipeline==='production'?'active':''}" data-pipeline="production">Production</button>
+      <button class="pipeline-tab ${state.pipeline==='training'?'active':''}" data-pipeline="training">Training</button>
+    </div>
+    <main id="main"></main>
+  `;
+  document.getElementById("projectSelect").addEventListener("change", async (e)=>{
+    state.currentProjectId = e.target.value;
+    await loadProjectData();
+    renderMain();
+  });
+  document.getElementById("signOutBtn").addEventListener("click", signOut);
+  document.querySelectorAll(".pipeline-tab").forEach(b=>{
+    b.addEventListener("click", ()=>{ state.pipeline = b.dataset.pipeline; renderShell(); });
+  });
+  if(isRole("owner")){
+    document.getElementById("manageProjectsBtn").addEventListener("click", openManageProjects);
+    document.getElementById("teamBtn").addEventListener("click", openTeamModal);
+  }
+  if(isOwnerOrTeamLead()){
+    document.getElementById("reportBtn").addEventListener("click", openReportModal);
+  }
+  renderMain();
+}
+
+function roleLabel(r){ const f = ROLES.find(x=>x[0]===r); return f?f[1]:r; }
+
+function renderMain(){
+  const $main = document.getElementById("main");
+  if(state.pipeline === "training"){
+    renderTrainingHome($main);
+    return;
+  }
+  if(!state.projects.length){
+    $main.innerHTML = `<div class="empty-state">No projects yet. ${isRole("owner")?"Use \"Manage projects\" above to create one.":"Ask the owner to set one up."}</div>`;
+    return;
+  }
+  if(state.pipeline === "acquisition"){
+    $main.innerHTML = `
+      <div class="sub-tabs">
+        <button class="sub-tab ${state.subTab==='leads'?'active':''}" data-sub="leads">Leads</button>
+        <button class="sub-tab ${state.subTab==='deals'?'active':''}" data-sub="deals">Deals</button>
+      </div>
+      <div id="subContent" style="margin-top:14px;"></div>
+    `;
+    document.querySelectorAll(".sub-tab").forEach(b=>{
+      b.addEventListener("click", ()=>{ state.subTab=b.dataset.sub; renderMain(); });
+    });
+    renderSubContent();
+  } else {
+    renderProductionBoard($main);
+  }
+}
+
+function renderSubContent(){
+  const el = document.getElementById("subContent");
+  if(state.subTab === "leads") renderLeadsBoard(el);
+  else renderDealsBoard(el);
+}
+
+/* ============================================================
+   LEADS BOARD
+   ============================================================ */
+function renderLeadsBoard(el){
+  el.innerHTML = `
+    <div class="board-header">
+      <h2>Leads</h2>
+      <div class="spacer"></div>
+      <button class="btn-ghost btn-sm" id="exportLeadsBtn">Export CSV</button>
+      ${canManageLeads()?`<button class="btn-primary btn-sm" id="newLeadBtn">+ New lead</button>`:""}
+    </div>
+    <div class="board" id="leadsBoard"></div>
+    ${renderFeed()}
+  `;
+  const board = document.getElementById("leadsBoard");
+  board.innerHTML = LEAD_STAGES.map(([key,label])=>{
+    const items = state.leads.filter(l=>l.stage===key);
+    return `
+      <div class="column">
+        <div class="column-head"><span class="column-title">${label}</span><span class="column-count">${items.length}</span></div>
+        <div class="column-body">
+          ${items.length?items.map(leadCard).join(""):`<div class="empty-col">No leads here</div>`}
+        </div>
+      </div>`;
+  }).join("");
+  document.querySelectorAll("[data-lead]").forEach(c=>{
+    c.addEventListener("click", ()=>openLeadModal(c.dataset.lead));
+  });
+  if(canManageLeads()) document.getElementById("newLeadBtn").addEventListener("click", ()=>openLeadModal(null));
+  document.getElementById("exportLeadsBtn").addEventListener("click", ()=>exportCsv(state.leads, "leads"));
+}
+function leadCard(l){
+  return `
+    <div class="card" data-lead="${l.id}">
+      <div class="card-top"><div class="card-title">${esc(l.name)}</div></div>
+      <div class="card-meta">${esc(l.organisation||"")}</div>
+      <div class="card-value">${fmtMoney(l.value_estimate)}</div>
+      <div class="card-meta">${esc(profileName(l.owner_id))}</div>
+    </div>`;
+}
+
+/* ============================================================
+   DEALS BOARD
+   ============================================================ */
+function renderDealsBoard(el){
+  el.innerHTML = `
+    <div class="board-header">
+      <h2>Deals</h2>
+      <div class="spacer"></div>
+      <button class="btn-ghost btn-sm" id="exportDealsBtn">Export CSV</button>
+      ${canManageDeals()?`<button class="btn-primary btn-sm" id="newDealBtn">+ New deal</button>`:""}
+    </div>
+    <div class="board" id="dealsBoard"></div>
+    ${renderFeed()}
+  `;
+  const board = document.getElementById("dealsBoard");
+  board.innerHTML = DEAL_STAGES.map(([key,label])=>{
+    const items = state.deals.filter(d=>d.stage===key);
+    return `
+      <div class="column">
+        <div class="column-head"><span class="column-title">${label}</span><span class="column-count">${items.length}</span></div>
+        <div class="column-body">
+          ${items.length?items.map(dealCard).join(""):`<div class="empty-col">No deals here</div>`}
+        </div>
+      </div>`;
+  }).join("");
+  document.querySelectorAll("[data-deal]").forEach(c=>{
+    c.addEventListener("click", ()=>openDealModal(c.dataset.deal));
+  });
+  if(canManageDeals()) document.getElementById("newDealBtn").addEventListener("click", ()=>openDealModal(null));
+  document.getElementById("exportDealsBtn").addEventListener("click", ()=>exportCsv(state.deals, "deals"));
+}
+function dealCard(d){
+  return `
+    <div class="card" data-deal="${d.id}">
+      <div class="card-top"><div class="card-title">${esc(d.name)}</div></div>
+      <div class="card-meta">${esc(d.client_name)}</div>
+      <div class="card-value">${fmtMoney(d.deal_value)}</div>
+      <div class="card-meta">${esc(profileName(d.owner_id))} · closes ${fmtDate(d.expected_close_date)}</div>
+    </div>`;
+}
+
+/* ============================================================
+   PRODUCTION BOARD
+   ============================================================ */
+function renderProductionBoard($main){
+  $main.innerHTML = `
+    <div class="board-header">
+      <h2>Production</h2>
+      <div class="spacer"></div>
+      <button class="btn-ghost btn-sm" id="exportProdBtn">Export CSV</button>
+      ${isOwnerOrTeamLead()?`<button class="btn-ghost btn-sm" id="manageStagesBtn">Pipeline stages</button>`:""}
+      ${canManageProductions()?`<button class="btn-primary btn-sm" id="newProdBtn">+ New production</button>`:""}
+    </div>
+    <div class="board" id="prodBoard"></div>
+    ${renderFeed()}
+  `;
+  if(!state.stages.length){
+    document.getElementById("prodBoard").innerHTML = `<div class="empty-state">No pipeline stages set up for this project yet. ${isOwnerOrTeamLead()?'Tap "Pipeline stages" to add some.':'Ask the owner to set them up.'}</div>`;
+  } else {
+    const visible = state.productions.filter(p=>{
+      if(canManageProductions() || isRole("coach")) return true;
+      return [p.closer_id, p.setter_id].includes(state.user.id);
+    });
+    const board = document.getElementById("prodBoard");
+    board.innerHTML = state.stages.map(s=>{
+      const items = visible.filter(p=>p.production_stage===s.key);
+      return `
+        <div class="column">
+          <div class="column-head"><span class="column-title">${esc(s.label)}</span><span class="column-count">${items.length}</span></div>
+          <div class="column-body">
+            ${items.length?items.map(productionCard).join(""):`<div class="empty-col">Nothing here</div>`}
+          </div>
+        </div>`;
+    }).join("");
+    document.querySelectorAll("[data-prod]").forEach(c=>{
+      c.addEventListener("click", ()=>openProductionModal(c.dataset.prod));
+    });
+  }
+  if(canManageProductions()) document.getElementById("newProdBtn").addEventListener("click", ()=>openProductionModal(null));
+  if(isOwnerOrTeamLead()) document.getElementById("manageStagesBtn").addEventListener("click", openManageStages);
+  document.getElementById("exportProdBtn").addEventListener("click", ()=>exportCsv(state.productions, "productions"));
+}
+function productionCard(p){
+  const stageDef = state.stages.find(s=>s.key===p.production_stage);
+  const live = state.stages.length && p.production_stage === state.stages[Math.min(2,state.stages.length-1)].key;
+  const unassigned = !p.closer_id && !p.setter_id;
+  const showBudget = isRole("owner","team_leader","business_development","coach");
+  return `
+    <div class="card" data-prod="${p.id}">
+      <div class="card-top">
+        <span class="slate-tag">SLATE №${String(p.slate_number).padStart(3,"0")}</span>
+        ${live?`<span class="tally-dot">&#10022;</span>`:""}
+      </div>
+      <div class="card-title">${esc(p.title)}</div>
+      <div class="card-meta"><span class="day-counter">DAY ${daysSince(p.stage_entered_at)}</span> in ${esc(stageDef?stageDef.label:p.production_stage)}</div>
+      ${showBudget?`<div class="card-value">${fmtMoney(p.budget)}</div>`:""}
+      <div class="card-meta">Closer: ${esc(profileName(p.closer_id))} · Setter: ${esc(profileName(p.setter_id))}</div>
+      ${unassigned?`<div style="margin-top:6px;"><span class="badge-unassigned">Needs attribution</span></div>`:""}
+    </div>`;
+}
+
+/* ============================================================
+   ACTIVITY FEED
+   ============================================================ */
+function renderFeed(){
+  if(!state.activity.length) return `<div class="feed"><h3>Activity</h3><div class="muted" style="font-size:13px;">Nothing logged yet.</div></div>`;
+  return `
+    <div class="feed">
+      <h3>Activity</h3>
+      ${state.activity.map(a=>`
+        <div class="feed-item">
+          <span class="who">${esc(profileName(a.user_id))}</span> ${esc(a.action)}
+          <span class="feed-time"> · ${timeAgo(a.created_at)}</span>
+        </div>`).join("")}
+    </div>`;
+}
+
+/* ============================================================
+   MODAL FRAMEWORK
+   ============================================================ */
+function openModal(html){
+  const wrap = document.createElement("div");
+  wrap.className = "overlay";
+  wrap.id = "overlay";
+  wrap.innerHTML = `<div class="modal">${html}</div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener("click", (e)=>{ if(e.target.id==="overlay") closeModal(); });
+}
+function closeModal(){
+  const o = document.getElementById("overlay");
+  if(o) o.remove();
+}
+
+/* ---------- Lead modal ---------- */
+function openLeadModal(id){
+  const lead = id ? state.leads.find(l=>l.id===id) : null;
+  const canEdit = canManageLeads();
+  openModal(`
+    <div class="modal-head"><h3>${lead?"Edit lead":"New lead"}</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <label>Name</label><input id="f_name" value="${esc(lead?.name||"")}" ${canEdit?"":"disabled"}>
+    <label>Organisation</label><input id="f_org" value="${esc(lead?.organisation||"")}" ${canEdit?"":"disabled"}>
+    <label>Contact email</label><input id="f_email" value="${esc(lead?.contact_email||"")}" ${canEdit?"":"disabled"}>
+    <label>Source</label><input id="f_source" value="${esc(lead?.source||"")}" ${canEdit?"":"disabled"}>
+    <label>Estimated value (£)</label><input id="f_value" type="number" value="${lead?.value_estimate||""}" ${canEdit?"":"disabled"}>
+    <label>Stage</label>
+    <select id="f_stage" ${canEdit?"":"disabled"}>${LEAD_STAGES.map(([k,l])=>`<option value="${k}" ${lead?.stage===k?"selected":""}>${l}</option>`).join("")}</select>
+    <label>Owner</label>
+    <select id="f_owner" ${canEdit?"":"disabled"}>${state.allProfiles.map(p=>`<option value="${p.id}" ${lead?.owner_id===p.id?"selected":""}>${esc(p.full_name)}</option>`).join("")}</select>
+    <label>Notes</label><textarea id="f_notes" rows="3" ${canEdit?"":"disabled"}>${esc(lead?.notes||"")}</textarea>
+    <div class="modal-actions">
+      ${canEdit?`<button class="btn-primary" id="mSave">${lead?"Save":"Create"}</button>`:""}
+      ${lead && canEdit && lead.stage!=="converted" ? `<button class="btn-ghost" id="mConvert">Convert to deal →</button>`:""}
+      ${lead && canEdit ? `<button class="btn-danger" id="mDelete">Delete</button>`:""}
+    </div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  if(!canEdit) return;
+  document.getElementById("mSave").addEventListener("click", async ()=>{
+    const payload = {
+      project_id: state.currentProjectId,
+      name: document.getElementById("f_name").value.trim(),
+      organisation: document.getElementById("f_org").value.trim(),
+      contact_email: document.getElementById("f_email").value.trim(),
+      source: document.getElementById("f_source").value.trim(),
+      value_estimate: document.getElementById("f_value").value || null,
+      stage: document.getElementById("f_stage").value,
+      owner_id: document.getElementById("f_owner").value,
+      notes: document.getElementById("f_notes").value.trim(),
+      updated_at: new Date().toISOString()
+    };
+    if(!payload.name){ toast("Name is required.", true); return; }
+    let res;
+    if(lead) res = await sb.from("leads").update(payload).eq("id", lead.id);
+    else res = await sb.from("leads").insert(payload);
+    if(res.error){ toast(res.error.message, true); return; }
+    await logActivity("lead", lead?lead.id:"new", lead?"updated a lead":"created a lead", {name:payload.name});
+    closeModal(); await loadProjectData(); renderMain(); toast("Saved.");
+  });
+  if(lead && lead.stage!=="converted"){
+    const convertBtn = document.getElementById("mConvert");
+    if(convertBtn) convertBtn.addEventListener("click", async ()=>{
+      const { error } = await sb.from("deals").insert({
+        project_id: state.currentProjectId, lead_id: lead.id,
+        name: lead.name, client_name: lead.organisation || lead.name,
+        deal_value: lead.value_estimate || 0, owner_id: lead.owner_id, stage:"negotiating"
+      });
+      if(error){ toast(error.message, true); return; }
+      await sb.from("leads").update({stage:"converted"}).eq("id", lead.id);
+      await logActivity("lead", lead.id, "converted a lead to a deal", {name:lead.name});
+      closeModal(); await loadProjectData(); renderMain(); toast("Converted to deal.");
+    });
+  }
+  if(lead){
+    const delBtn = document.getElementById("mDelete");
+    if(delBtn) delBtn.addEventListener("click", async ()=>{
+      if(!confirm("Delete this lead? This can't be undone.")) return;
+      await sb.from("leads").delete().eq("id", lead.id);
+      closeModal(); await loadProjectData(); renderMain(); toast("Lead deleted.");
+    });
+  }
+}
+
+/* ---------- Deal modal ---------- */
+function openDealModal(id){
+  const deal = id ? state.deals.find(d=>d.id===id) : null;
+  const canEdit = canManageDeals();
+  openModal(`
+    <div class="modal-head"><h3>${deal?"Edit deal":"New deal"}</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <label>Deal name</label><input id="f_name" value="${esc(deal?.name||"")}" ${canEdit?"":"disabled"}>
+    <label>Client</label><input id="f_client" value="${esc(deal?.client_name||"")}" ${canEdit?"":"disabled"}>
+    <label>Value (£)</label><input id="f_value" type="number" value="${deal?.deal_value||""}" ${canEdit?"":"disabled"}>
+    <label>Stage</label>
+    <select id="f_stage" ${canEdit?"":"disabled"}>${DEAL_STAGES.map(([k,l])=>`<option value="${k}" ${deal?.stage===k?"selected":""}>${l}</option>`).join("")}</select>
+    <label>Owner</label>
+    <select id="f_owner" ${canEdit?"":"disabled"}>${state.allProfiles.map(p=>`<option value="${p.id}" ${deal?.owner_id===p.id?"selected":""}>${esc(p.full_name)}</option>`).join("")}</select>
+    <label>Expected close date</label><input id="f_close" type="date" value="${deal?.expected_close_date||""}" ${canEdit?"":"disabled"}>
+    <label>Notes</label><textarea id="f_notes" rows="3" ${canEdit?"":"disabled"}>${esc(deal?.notes||"")}</textarea>
+    ${deal && deal.stage==="won" ? `<div class="muted" style="font-size:12px;margin-top:10px;">Marking a deal Won automatically creates a production in the Production board.</div>`:""}
+    <div class="modal-actions">
+      ${canEdit?`<button class="btn-primary" id="mSave">${deal?"Save":"Create"}</button>`:""}
+      ${deal && canEdit ? `<button class="btn-danger" id="mDelete">Delete</button>`:""}
+    </div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  if(!canEdit) return;
+  document.getElementById("mSave").addEventListener("click", async ()=>{
+    const payload = {
+      project_id: state.currentProjectId,
+      name: document.getElementById("f_name").value.trim(),
+      client_name: document.getElementById("f_client").value.trim(),
+      deal_value: document.getElementById("f_value").value || 0,
+      stage: document.getElementById("f_stage").value,
+      owner_id: document.getElementById("f_owner").value,
+      expected_close_date: document.getElementById("f_close").value || null,
+      notes: document.getElementById("f_notes").value.trim(),
+      updated_at: new Date().toISOString()
+    };
+    if(!payload.name || !payload.client_name){ toast("Deal name and client are required.", true); return; }
+    let res;
+    if(deal) res = await sb.from("deals").update(payload).eq("id", deal.id);
+    else res = await sb.from("deals").insert(payload);
+    if(res.error){ toast(res.error.message, true); return; }
+    await logActivity("deal", deal?deal.id:"new", deal?"updated a deal":"created a deal", {name:payload.name});
+    closeModal(); await loadProjectData(); renderMain();
+    toast(payload.stage==="won" ? "Deal won — production created." : "Saved.");
+  });
+  if(deal){
+    const delBtn = document.getElementById("mDelete");
+    if(delBtn) delBtn.addEventListener("click", async ()=>{
+      if(!confirm("Delete this deal? This can't be undone.")) return;
+      await sb.from("deals").delete().eq("id", deal.id);
+      closeModal(); await loadProjectData(); renderMain(); toast("Deal deleted.");
+    });
+  }
+}
+
+/* ---------- Production modal ---------- */
+function openProductionModal(id){
+  const prod = id ? state.productions.find(p=>p.id===id) : null;
+  const canEditAll = canManageProductions();
+  const isAssigned = prod && [prod.closer_id, prod.setter_id].includes(state.user.id);
+  const canEditSome = canEditAll || isAssigned;
+  const showBudget = isRole("owner","team_leader","business_development","coach");
+  openModal(`
+    <div class="modal-head"><h3>${prod?"Edit production":"New production"}</h3><button class="modal-close" id="mClose">&times;</button></div>
+    ${prod?`<div class="slate-tag" style="margin-bottom:10px;">SLATE №${String(prod.slate_number).padStart(3,"0")} · DAY ${daysSince(prod.stage_entered_at)}</div>`:""}
+    <label>Title</label><input id="f_title" value="${esc(prod?.title||"")}" ${canEditAll?"":"disabled"}>
+    <label>Client</label><input id="f_client" value="${esc(prod?.client_name||"")}" ${canEditAll?"":"disabled"}>
+    ${showBudget?`<label>Budget (£)</label><input id="f_budget" type="number" value="${prod?.budget||""}" ${canEditAll?"":"disabled"}>`:""}
+    <label>Stage</label>
+    <select id="f_stage" ${canEditSome?"":"disabled"}>${state.stages.map(s=>`<option value="${s.key}" ${prod?.production_stage===s.key?"selected":""}>${esc(s.label)}</option>`).join("")}</select>
+    <label>Target delivery date</label><input id="f_target" type="date" value="${prod?.target_delivery_date||""}" ${canEditAll?"":"disabled"}>
+    <label>Closer</label>
+    <select id="f_closer" ${canEditAll?"":"disabled"}><option value="">Unassigned</option>${state.allProfiles.map(p=>`<option value="${p.id}" ${prod?.closer_id===p.id?"selected":""}>${esc(p.full_name)}</option>`).join("")}</select>
+    <label>Setter</label>
+    <select id="f_setter" ${canEditAll?"":"disabled"}><option value="">Unassigned</option>${state.allProfiles.map(p=>`<option value="${p.id}" ${prod?.setter_id===p.id?"selected":""}>${esc(p.full_name)}</option>`).join("")}</select>
+    <label>Notes</label><textarea id="f_notes" rows="3" ${canEditSome?"":"disabled"}>${esc(prod?.notes||"")}</textarea>
+    <div class="modal-actions">
+      ${canEditSome?`<button class="btn-primary" id="mSave">${prod?"Save":"Create"}</button>`:""}
+      ${prod && canEditAll ? `<button class="btn-danger" id="mDelete">Delete</button>`:""}
+    </div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  if(!canEditSome) return;
+  document.getElementById("mSave").addEventListener("click", async ()=>{
+    if(!document.getElementById("f_stage").options.length){ toast("Set up pipeline stages for this project first.", true); return; }
+    const newStage = document.getElementById("f_stage").value;
+    const payload = canEditAll ? {
+      project_id: state.currentProjectId,
+      title: document.getElementById("f_title").value.trim(),
+      client_name: document.getElementById("f_client").value.trim(),
+      budget: showBudget ? (document.getElementById("f_budget").value || null) : (prod?prod.budget:null),
+      production_stage: newStage,
+      target_delivery_date: document.getElementById("f_target").value || null,
+      closer_id: document.getElementById("f_closer").value || null,
+      setter_id: document.getElementById("f_setter").value || null,
+      notes: document.getElementById("f_notes").value.trim(),
+      updated_at: new Date().toISOString()
+    } : {
+      production_stage: newStage,
+      notes: document.getElementById("f_notes").value.trim(),
+      updated_at: new Date().toISOString()
+    };
+    if(prod && newStage !== prod.production_stage){
+      payload.stage_entered_at = new Date().toISOString().slice(0,10);
+    }
+    if(canEditAll && !payload.title){ toast("Title is required.", true); return; }
+    let res;
+    if(prod) res = await sb.from("productions").update(payload).eq("id", prod.id);
+    else res = await sb.from("productions").insert(payload);
+    if(res.error){ toast(res.error.message, true); return; }
+    await logActivity("production", prod?prod.id:"new", prod?"updated a production":"created a production", {title:payload.title});
+    closeModal(); await loadProjectData(); renderMain(); toast("Saved.");
+  });
+  if(prod && canEditAll){
+    const delBtn = document.getElementById("mDelete");
+    if(delBtn) delBtn.addEventListener("click", async ()=>{
+      if(!confirm("Delete this production? This can't be undone.")) return;
+      await sb.from("productions").delete().eq("id", prod.id);
+      closeModal(); await loadProjectData(); renderMain(); toast("Production deleted.");
+    });
+  }
+}
+
+/* ---------- Report (booked leads + won deals, for Ayden to forward to Theo) ---------- */
+function openReportModal(){
+  const proj = state.projects.find(p=>p.id===state.currentProjectId);
+  const grouped = {};
+  state.notifications.forEach(n=>{
+    const day = new Date(n.created_at).toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"short"});
+    grouped[day] = grouped[day] || [];
+    grouped[day].push(n);
+  });
+  const days = Object.keys(grouped);
+  openModal(`
+    <div class="modal-head"><h3>Report — ${esc(proj?proj.name:"")}</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px;">Bookings and wins, newest first. Screenshot this or copy it as text to send to Theo.</div>
+    <div id="reportBody">
+      ${days.length ? days.map(day=>`
+        <div style="margin-top:14px;">
+          <div class="mono" style="font-size:11px;color:var(--ash);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">${day}</div>
+          ${grouped[day].map(n=>`<div class="feed-item">${esc(n.message)}</div>`).join("")}
+        </div>`).join("") : `<div class="muted" style="font-size:13px;margin-top:10px;">Nothing booked or won yet on this project.</div>`}
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="copyReportBtn">Copy as text</button>
+    </div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  document.getElementById("copyReportBtn").addEventListener("click", async ()=>{
+    let text = `L2i Productions — ${proj?proj.name:""} report\n\n`;
+    days.forEach(day=>{
+      text += `${day}\n`;
+      grouped[day].forEach(n=>{ text += `• ${n.message}\n`; });
+      text += `\n`;
+    });
+    try{
+      await navigator.clipboard.writeText(text.trim());
+      toast("Copied — paste it into WhatsApp.");
+    }catch(e){
+      toast("Couldn't copy automatically — select the text manually.", true);
+    }
+  });
+}
+function openManageStages(){
+  openModal(`
+    <div class="modal-head"><h3>Pipeline stages</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px;">These stages apply to this project only — set up a different pipeline for each project.</div>
+    <div id="stageList"></div>
+    <label>New stage name</label>
+    <input id="newStageName" placeholder="e.g. Deposit Received">
+    <div class="modal-actions"><button class="btn-primary" id="addStageBtn">Add stage</button></div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  renderStageList();
+  document.getElementById("addStageBtn").addEventListener("click", async ()=>{
+    const label = document.getElementById("newStageName").value.trim();
+    if(!label){ toast("Enter a stage name.", true); return; }
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/(^_|_$)/g,"");
+    const nextOrder = state.stages.length ? Math.max(...state.stages.map(s=>s.sort_order)) + 1 : 1;
+    const { error } = await sb.from("pipeline_stages").insert({ project_id: state.currentProjectId, key, label, sort_order: nextOrder });
+    if(error){ toast(error.message, true); return; }
+    document.getElementById("newStageName").value = "";
+    const { data: stages } = await sb.from("pipeline_stages").select("*").eq("project_id", state.currentProjectId).order("sort_order");
+    state.stages = stages || [];
+    renderStageList();
+    toast("Stage added.");
+  });
+}
+function renderStageList(){
+  const el = document.getElementById("stageList");
+  el.innerHTML = state.stages.map(s=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--slate-border);">
+      <span>${esc(s.label)}</span>
+      <button class="btn-danger btn-sm" data-delstage="${s.id}">Remove</button>
+    </div>`).join("") || `<div class="muted" style="font-size:13px;">No stages yet — add the first one below.</div>`;
+  el.querySelectorAll("[data-delstage]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      const inUse = state.productions.some(p=>{
+        const s = state.stages.find(s=>s.id===b.dataset.delstage);
+        return s && p.production_stage === s.key;
+      });
+      if(inUse && !confirm("Productions are currently sitting in this stage. Remove it anyway?")) return;
+      await sb.from("pipeline_stages").delete().eq("id", b.dataset.delstage);
+      const { data: stages } = await sb.from("pipeline_stages").select("*").eq("project_id", state.currentProjectId).order("sort_order");
+      state.stages = stages || [];
+      renderStageList();
+      toast("Stage removed.");
+    });
+  });
+}
+
+/* ---------- Manage projects (owner) ---------- */
+function openManageProjects(){
+  openModal(`
+    <div class="modal-head"><h3>Manage projects</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <div id="projList"></div>
+    <label>New project name</label>
+    <input id="newProjName" placeholder="e.g. Branded Content">
+    <div class="modal-actions"><button class="btn-primary" id="addProjBtn">Add project</button></div>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  renderProjList();
+  document.getElementById("addProjBtn").addEventListener("click", async ()=>{
+    const name = document.getElementById("newProjName").value.trim();
+    if(!name){ toast("Enter a project name.", true); return; }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+    const { error } = await sb.from("projects").insert({ name, slug });
+    if(error){ toast(error.message, true); return; }
+    document.getElementById("newProjName").value="";
+    const {data:projects} = await sb.from("projects").select("*").eq("archived",false).order("created_at");
+    state.projects = projects || [];
+    renderProjList();
+    toast("Project added.");
+  });
+}
+function renderProjList(){
+  const el = document.getElementById("projList");
+  el.innerHTML = state.projects.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--slate-border);">
+      <span>${esc(p.name)}</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-ghost btn-sm" data-archive="${p.id}">Archive</button>
+        <button class="btn-danger btn-sm" data-delproj="${p.id}">Delete</button>
+      </div>
+    </div>`).join("");
+  el.querySelectorAll("[data-archive]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      await sb.from("projects").update({archived:true}).eq("id", b.dataset.archive);
+      toast("Project archived.");
+      closeModal();
+      const {data:projects} = await sb.from("projects").select("*").eq("archived",false).order("created_at");
+      state.projects = projects || [];
+      if(state.currentProjectId === b.dataset.archive){
+        state.currentProjectId = state.projects[0]?.id || null;
+        await loadProjectData();
+      }
+      renderShell();
+    });
+  });
+  el.querySelectorAll("[data-delproj]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      if(!confirm("Permanently delete this project and everything in it? This cannot be undone.")) return;
+      await sb.from("projects").delete().eq("id", b.dataset.delproj);
+      toast("Project deleted.");
+      closeModal();
+      const {data:projects} = await sb.from("projects").select("*").eq("archived",false).order("created_at");
+      state.projects = projects || [];
+      if(state.currentProjectId === b.dataset.delproj){
+        state.currentProjectId = state.projects[0]?.id || null;
+        await loadProjectData();
+      }
+      renderShell();
+    });
+  });
+}
+
+/* ---------- Team (owner) ---------- */
+function openTeamModal(){
+  openModal(`
+    <div class="modal-head"><h3>Team</h3><button class="modal-close" id="mClose">&times;</button></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px;">People can create their own account from the sign-in screen now. Approve them and set their role below before they can see anything.</div>
+    <table>
+      <tr><th>Name</th><th>Role</th><th>Status</th></tr>
+      ${state.allProfiles.map(p=>`
+        <tr>
+          <td>${esc(p.full_name)}</td>
+          <td><select data-role="${p.id}">${ROLES.map(([k,l])=>`<option value="${k}" ${p.role===k?"selected":""}>${l}</option>`).join("")}</select></td>
+          <td>${p.approved
+            ? `<span style="color:var(--scope-teal);font-size:12px;">Approved</span>`
+            : `<button class="btn-primary btn-sm" data-approve="${p.id}">Approve</button>`}</td>
+        </tr>
+      `).join("")}
+    </table>
+  `);
+  document.getElementById("mClose").addEventListener("click", closeModal);
+  document.querySelectorAll("[data-role]").forEach(s=>{
+    s.addEventListener("change", async ()=>{
+      const { error } = await sb.from("profiles").update({role:s.value}).eq("id", s.dataset.role);
+      if(error){ toast(error.message, true); return; }
+      const p = state.allProfiles.find(p=>p.id===s.dataset.role);
+      if(p) p.role = s.value;
+      toast("Role updated.");
+    });
+  });
+  document.querySelectorAll("[data-approve]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      const { error } = await sb.from("profiles").update({approved:true}).eq("id", b.dataset.approve);
+      if(error){ toast(error.message, true); return; }
+      const p = state.allProfiles.find(p=>p.id===b.dataset.approve);
+      if(p) p.approved = true;
+      toast("Approved.");
+      openTeamModal();
+    });
+  });
+}
+
+/* ============================================================
+   CSV EXPORT
+   ============================================================ */
+function exportCsv(rows, filename){
+  if(!rows.length){ toast("Nothing to export yet.", true); return; }
+  const keys = Object.keys(rows[0]);
+  const csv = [keys.join(",")].concat(
+    rows.map(r=>keys.map(k=>`"${String(r[k]??"").replace(/"/g,'""')}"`).join(","))
+  ).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+
+/* ============================================================
+   TRAINING MODULE (Setter Academy) — lives inside the CRM
+   Reuses CRM helpers: sb, esc, toast, state.user, state.profile,
+   state.allProfiles, isRole. Self-contained sub-state under
+   state.training. Lessons marked [Pending] await Ayden's scripts.
+   ============================================================ */
+const CURRICULUM = [
+{
+  key:"s1_welcome", title:"Welcome to the L2i Setter Role",
+  lessons:[
+    {title:"What a Setter Does at L2i", content:
+`L2i doesn't sit around waiting for clients to come to it. A large part of how L2i funds its productions — docuseries, branded content, larger commercial work — is by finding individuals who want to invest in or attach themselves to what L2i is making. That search starts with you.
+
+Your job as a setter is the very first touchpoint. You find a credible prospect on Instagram or LinkedIn, open a real conversation, qualify whether they're genuinely interested and capable, and book them in for a call with a closer.
+
+You don't close. You don't quote figures. You don't negotiate terms. That's the closer's job, and keeping that boundary is what makes the whole system work — you can move fast and stay warm in a DM precisely because you're not also trying to extract a financial commitment in the same breath.
+
+One well-qualified booking beats five tire-kickers. Your job is quality of conversation, not just volume of replies.`},
+    {title:"The Full Pipeline — From DM to Delivered", content:
+`Here's the whole journey, start to finish, so you understand where your work fits:
+
+You source a prospect and message them. You log them as a Lead in the CRM. You qualify them through conversation. Once they've agreed to a real call, you move them to Booked — this automatically notifies Ayden.
+
+A closer takes the call. The Lead becomes a Deal. The closer negotiates and, if it lands, marks the deal Won — which automatically creates a Production in the CRM, crediting both the closer and you as the originating setter.
+
+That production then moves through its own stages — for example, on the Docuseries project: Deposit Received, Film Produced, Full Amount Received.
+
+Nothing in this chain happens off the books. If it isn't logged in the CRM, it didn't happen as far as credit, commission, or coaching is concerned.`},
+    {title:"Standards & Expectations", content:
+`A few non-negotiables, regardless of how good your numbers are:
+
+Always disclose who you are. You message as yourself, on behalf of L2i Productions — never an anonymous or fake account, never pretending to be someone you're not.
+
+Respect a "no." If someone declines or stops responding, you don't chase them repeatedly. One polite follow-up is fine; relentless messaging isn't — it damages L2i's name with people who might still be worth knowing in future.
+
+Keep it sharp. No copy-paste-looking openers, no spelling mistakes, no generic "hey, loved your content!" messages. Every message should read like it was actually written for that person.
+
+Confidentiality matters. Don't discuss other prospects, deal terms, or other reps' numbers in conversations — with prospects or with each other outside the team.
+
+Ask your Team Leader for your daily activity target — how many new conversations, follow-ups, and qualified bookings you're expected to hit. That number is set by your Team Leader, not by this course, because it changes as the team grows.`}
+  ],
+  quiz:[
+    {q:"What is a setter's main job at L2i?", options:["Negotiate the final investment terms","Open and qualify conversations, then book a call with a closer","Produce the film once it's funded","Manage the production budget"], correct:1},
+    {q:"What happens automatically when a closer marks a deal as Won?", options:["The setter is removed from the deal","Nothing — it has to be entered manually","A Production is created in the CRM, crediting the closer and the originating setter","The lead is deleted"], correct:2},
+    {q:"If a conversation isn't logged in the CRM, what's true about it?", options:["It still counts for commission as long as you remember it","It doesn't count for credit, commission, or coaching purposes","It gets logged automatically overnight","It only matters if the prospect invests"], correct:1},
+    {q:"What should you do if a prospect goes quiet after one message?", options:["Message them multiple times a day until they respond","Send one polite follow-up and then move on","Create a second account to reach them","Ask a closer to message them immediately"], correct:1},
+    {q:"Who sets your daily activity targets?", options:["This training course","Your Team Leader","The prospect","Nobody — there are no targets"], correct:1}
+  ]
+},
+{
+  key:"s2_psychology", title:"Sales Psychology Fundamentals",
+  lessons:[
+    {title:"Why People Say Yes — The Six Principles of Influence", content:
+`These six principles, originally laid out by psychologist Robert Cialdini, explain almost every "yes" you'll ever get in a DM:
+
+Reciprocity — people feel obliged to give back when they've received something first. A genuine compliment, a useful piece of information, or just real attention to their actual content opens this door.
+
+Social proof — people look to others for the right way to act. Mentioning that L2i has worked with footballers, UFC fighters, Love Islanders, and musicians isn't bragging — it's proof that people like them have already said yes.
+
+Authority — Theo Johnson's background in television, film, and BBC Radio 1Xtra gives L2i real, checkable credibility. Lean on that, don't invent your own.
+
+Liking — people say yes to people they like. This is why tone and genuine interest matter more than any clever line.
+
+Scarcity — limited investment slots on a production are a real, honest scarcity, not a manufactured one. Use it accurately, never falsely.
+
+Commitment & consistency — once someone agrees to something small (like a short call), they're far more likely to follow through on the next step, because backing out would be inconsistent with what they just said.`},
+    {title:"Status, Legacy and Access — Why Wealthy People Invest in Film", content:
+`Film investment is famously high-risk as a pure financial play — most people who invest in entertainment know that going in. So if it's rarely about the spreadsheet, what is it about?
+
+Status — an executive producer credit, or simply being known as someone "in the industry," is worth more socially to many investors than the money itself.
+
+Legacy — putting their name on something cultural that outlives a normal business deal.
+
+Access — relationships with talent, athletes, and influencers that a straight cash investment elsewhere could never buy.
+
+Ego and passion — plenty of people invest in film because they genuinely love it and want to be part of the creative process, not just the financial outcome.
+
+Your job is to listen for which of these actually matters to the person you're talking to, and let that guide the conversation — don't lead with ROI talk to someone who's really chasing access, and don't lead with glamour to someone who's clearly thinking like an investor.`},
+    {title:"Frame Control and Tonality in Text", content:
+`You don't get a tone of voice or a smile in a DM — every signal has to come through word choice and pacing.
+
+Write like a person, not a script. Avoid excessive emojis and exclamation marks — they read as low-status and over-eager.
+
+Ask, don't tell. A good qualifying question feels like natural curiosity, not an interrogation.
+
+Keep early messages short. Long opening messages get skimmed or ignored. Earn the right to write more as the conversation develops.
+
+Never look like you're selling too early. Lead with a genuine, specific observation about them — not a pitch. The moment a message reads like a template, the frame flips and they're now evaluating you, not the other way around.
+
+Mirror their energy. If they're formal, be a little more formal. If they're casual and quick, match that. Mismatched tone is one of the fastest ways to seem like a stranger running a script.`}
+  ],
+  quiz:[
+    {q:"Mentioning L2i's past work with footballers and UFC fighters is an example of which principle?", options:["Scarcity","Social proof","Reciprocity","Commitment and consistency"], correct:1},
+    {q:"Why do most wealthy people actually invest in film, according to this lesson?", options:["It's a historically reliable financial return","Mostly for status, legacy, access, or genuine passion — rarely pure ROI","Because it's required for tax reasons","Because setters convince them it's risk-free"], correct:1},
+    {q:"What's the risk of using lots of emojis and exclamation marks in outreach?", options:["It signals confidence","It reads as low-status and over-eager","It's required by Instagram's algorithm","It has no effect either way"], correct:1},
+    {q:"What should an opening DM lead with?", options:["A direct pitch about investing in a production","A generic compliment copy-pasted to everyone","A specific, genuine observation about them","A request for their phone number"], correct:2},
+    {q:"What is 'commitment and consistency' used for in this context?", options:["Getting a small agreement (like a short call) that makes the next step easier to agree to","Pressuring someone into an investment immediately","Making promises L2i can't keep","Avoiding any further conversation"], correct:0}
+  ]
+},
+{
+  key:"s3_mindset", title:"The Setter Mindset",
+  lessons:[
+    {title:"Detachment From Outcome", content:
+`Needing a particular person to say yes is something people can sense, even through text — it shows up as over-explaining, fast follow-ups, or a slightly desperate tone.
+
+The fix isn't to care less about your results. It's to hold the frame that L2i is selective about who it lets invest, and that any single "no" simply means moving to the next conversation. You're not chasing this person — you're finding out if they're a fit, and plenty of people won't be, through no fault of yours or theirs.`},
+    {title:"The Numbers Game and Daily Non-Negotiables", content:
+`Most conversations won't convert into a booking, and that's normal, not a sign you're doing something wrong. The only thing fully in your control is the volume and quality of your outreach — not any individual person's decision.
+
+Track your own numbers honestly in the CRM: conversations started, qualified, booked. Over time you'll see your own ratios, and that data is far more useful for improving than guessing. Ask your Team Leader for your specific daily targets.`},
+    {title:"Handling Rejection Without Taking It Personally", content:
+`A "no," or silence, is data — not a judgment on you. Common real reasons someone doesn't respond: bad timing, inbox fatigue, or they genuinely weren't as qualified as they first looked. None of that is about your worth or your skill.
+
+Stay warm and professional even when declined or ignored. The entertainment and investment world is smaller than it looks — the person who says no today may be the person worth reconnecting with in a year, or the person who mentions you to someone else entirely.`}
+  ],
+  quiz:[
+    {q:"What can prospects often sense, even through text, when a setter is needy for a yes?", options:["Nothing — text hides all tone","Over-explaining, fast follow-ups, a desperate tone","That the setter is highly skilled","That the offer must be very good"], correct:1},
+    {q:"What's fully in a setter's control?", options:["Whether any individual prospect says yes","The volume and quality of their own outreach","The prospect's financial situation","The closer's negotiation skills"], correct:1},
+    {q:"What's the recommended response to silence or rejection?", options:["Stop being professional since they don't deserve it","Treat it as data, not a personal judgment, and stay warm","Message them more frequently to force a reply","Tell other prospects about it"], correct:1},
+    {q:"Why does staying professional after a 'no' matter?", options:["It doesn't matter at all once someone says no","The industry is small and reputations travel","It guarantees a future yes","It's required by law"], correct:1},
+    {q:"Where should a setter look to improve their own numbers?", options:["Guesswork","Their own honestly logged CRM activity over time","Other reps' private numbers","Nowhere — numbers don't matter"], correct:1}
+  ]
+},
+{
+  key:"s4_sourcing", title:"Sourcing High-Value Individuals",
+  lessons:[
+    {title:"Where Wealthy People Actually Hang Out on Instagram", content:
+`Look beyond generic "rich lifestyle" hashtags — those are mostly aspirational accounts, not the real thing. Better places to look:
+
+Sub-communities around luxury real estate, private aviation, exclusive members' clubs, premium watch and car collecting, and business conference circuits — these tend to attract people who are actually operating at that level, not just posting about it.
+
+Geo-tags for genuinely exclusive locations (members' clubs, certain hotels, certain neighbourhoods) often surface real prospects, since tagging a location is a more reliable signal than a caption.
+
+Following chains from L2i's existing collaborators — footballers, UFC fighters, Love Islanders, musicians — are often a goldmine, because their followers and the people they follow are pre-vetted by association in a way a cold stranger never is.`},
+    {title:"Building a Target List the Right Way", content:
+`Research before you reach out, not during. Keep a running list — in the CRM, as a Lead — before you message anyone, with notes on why they might be a fit.
+
+For each prospect, log: their handle, their apparent role or industry, any mutual connections, and the specific reason you think they could be interested. This isn't busywork — it's what lets you write a message that doesn't read like a template, and it's what Ayden and Theo see when they review activity.
+
+Avoid mass-DM blasts. Sending the same message to fifty people at once is the single fastest way to look like spam and damage L2i's name with exactly the people you want to impress.`},
+    {title:"Warm Sourcing — Using L2i's Existing Network", content:
+`Cold outreach to a total stranger is the hardest version of this job. Warm sourcing is easier and converts better, and L2i already has real warmth to draw on.
+
+Look at who follows L2i's own account, who's tagged in past L2i content, who engages with L2i's existing collaborators (footballers, UFC fighters, Love Islanders, musicians L2i has worked with). These people already have implicit familiarity and social proof before you've said a word — use that network before you go fully cold.`},
+    {title:"Qualifying Before You Pitch", content:
+`Never pitch investment in your first message. The first job is a genuine conversation: what do they do, what are they interested in, have they invested in creative projects before, what's actually driving their curiosity if they engage.
+
+Only move toward the pitch once you've seen a real signal of both interest and capacity — not just one or the other. Someone can be very interested and have no real capacity, or have plenty of capacity and zero interest in entertainment. You need both before booking a call.`}
+  ],
+  quiz:[
+    {q:"Why are generic 'rich lifestyle' hashtags often unreliable for sourcing?", options:["They're banned by Instagram","They mostly attract aspirational accounts, not genuinely wealthy people","They only show verified accounts","They're too difficult to search"], correct:1},
+    {q:"Why is following L2i's existing collaborators' networks a good source of prospects?", options:["It's the only legal way to find prospects","Their followers already have implicit familiarity and social proof with L2i","It guarantees a sale","It's faster than any other method, with no other benefit"], correct:1},
+    {q:"What should you do before sending a single outreach message?", options:["Nothing — just message everyone you can find","Research the person and log them as a Lead with notes on why they're a fit","Ask the prospect to qualify themselves first","Wait for them to message L2i first"], correct:1},
+    {q:"Why are mass-DM blasts a bad idea?", options:["They take too long to write","They read as spam and damage L2i's reputation","They're against this training's recommendations only, with no real downside","They always work, so there's no need to personalise"], correct:1},
+    {q:"What two things should you confirm before pitching investment?", options:["Their name and their location","Genuine interest AND real capacity","Their follower count and their job title","Nothing — pitch as early as possible"], correct:1}
+  ]
+},
+{
+  key:"s5_wealth_signals", title:"Reading Signs of Wealth on Instagram",
+  lessons:[
+    {title:"Bio and Profile Signals", content:
+`Start with the bio. Titles like Founder, CEO, Managing Director, or Investor are a starting signal — but check whether there's a real business link in the bio (an actual company website), not just a Linktree of affiliate junk.
+
+A verified badge adds weight but isn't proof on its own. A professional headshot or work-related profile photo, rather than only party or holiday photos, often indicates someone who treats the account as a professional presence rather than purely social.`},
+    {title:"Content Signals — and Their Traps", content:
+`Real signals: posts about real estate they clearly own (not one staged photo), genuine business operations content, press features, philanthropic involvement.
+
+The trap: plenty of accounts post luxury content — rented cars, rented villas, borrowed watches — purely for the appearance of wealth. The way to tell the difference is consistency over time and ownership language. A single flashy post proves nothing. A consistent pattern of posting about their own company, their own deals, their own team over months is a far stronger signal than any one photo.`},
+    {title:"Engagement Signals That Actually Matter", content:
+`Counterintuitively, a huge follower count with generic, bot-like comments often signals a content creator rather than someone with real capital. A smaller, tighter following with comments and replies from recognisable, real-name business figures is often a stronger signal of genuine influence and wealth.
+
+Look at who comments, not just how many. Quality of engagement beats quantity of followers almost every time when you're qualifying for investment capacity, not audience size.`},
+    {title:"Putting It Together — A Simple Scoring Habit", content:
+`Don't rely on one single "gotcha" signal. Build a quick mental checklist before reaching out: does the bio show a real role, is the content consistent over time rather than a one-off flex, is the engagement from real, relevant people rather than bots, and is there any mutual connection through L2i's network.
+
+Log your reasoning in the Lead's notes field in the CRM — not just "looks rich," but the actual signals you saw. That's what lets Ayden and Theo trust the qualification, not just the outcome, and it's what helps you get better at this over time.`}
+  ],
+  quiz:[
+    {q:"What's a stronger bio signal than a title alone?", options:["A long bio with many emojis","A real, working link to an actual business","A high follower count","Posting daily"], correct:1},
+    {q:"What's the 'trap' described with luxury content posts?", options:["Luxury content is always fake","Some accounts post rented or borrowed luxury items purely for appearance, with no real ownership","Luxury posts are against Instagram's rules","Wealthy people never post about luxury items"], correct:1},
+    {q:"What distinguishes a genuine signal of wealth from a one-off flex?", options:["The number of likes on a single post","Consistency of ownership-related content over time","Whether the photo is in landscape or portrait","The time of day it was posted"], correct:1},
+    {q:"What can a huge follower count with generic, bot-like comments often indicate?", options:["Guaranteed wealth","A content creator rather than someone with real investment capital","A verified government account","Nothing — follower count is the only signal that matters"], correct:1},
+    {q:"What should you log in the CRM when qualifying a prospect?", options:["Nothing — just log the outcome","The actual signals and reasoning behind your qualification","Only their phone number","Their full financial history"], correct:1}
+  ]
+},
+{
+  key:"s6_pitch", title:"The L2i Investment Pitch",
+  lessons:[
+    {title:"Pitch Structure", content:
+`Regardless of the exact wording (which your Team Leader will give you — see the next lesson), every L2i outreach conversation follows the same shape:
+
+A warm opener tied to something specific about them — never generic. A curiosity-based bridge into what L2i does, without pitching yet. A credibility transfer — Theo Johnson's TV and film background, and L2i's existing work and collaborations. The qualifying question, to confirm real interest and capacity. And finally, a soft ask to book a short call with the team once interest is genuinely confirmed.
+
+The actual wording matters — it's been built deliberately and tested, and brand consistency matters as much as compliance with how L2i positions investment conversations. You'll be expected to use it as written, then adapt it naturally once you know it well.`},
+    {title:"[Pending] Ayden's Script", content:
+`This lesson is waiting on the exact wording from Ayden and Theo — the real opening lines, the credibility section, and the qualifying question L2i uses in practice.
+
+Once that's added here, you'll be expected to know it well enough to use naturally in your own voice, not recite it word-for-word. Check back, or ask your Team Leader if you need it before it's added to this course.`}
+  ],
+  quiz:[
+    {q:"What comes first in the L2i pitch structure?", options:["The qualifying question","A warm, specific opener tied to the person","Asking for a financial commitment","A generic compliment sent to everyone"], correct:1},
+    {q:"What is the 'credibility transfer' step built on?", options:["The setter's own personal achievements","Theo Johnson's TV/film background and L2i's existing work","A list of competitor productions","Random statistics about the film industry"], correct:1},
+    {q:"What's the final step once interest is genuinely confirmed?", options:["Ask for an immediate wire transfer","A soft ask to book a short call with the team","End the conversation immediately","Send the full investment contract"], correct:1},
+    {q:"Why does the exact wording of the pitch matter?", options:["It doesn't — any wording works equally well","Brand consistency and how L2i positions investment conversations both matter","It's required by Instagram's terms of service","Because closers never see the wording"], correct:1},
+    {q:"How should you eventually use the real script, once it's added to this course?", options:["Recite it word-for-word every time, no exceptions","Know it well enough to use naturally in your own voice","Ignore it and write your own version","Only use it with prospects who ask for it"], correct:1}
+  ]
+},
+{
+  key:"s7_objections", title:"Objection Handling",
+  lessons:[
+    {title:"The Four Objection Families", content:
+`Almost every objection you'll see in a DM falls into one of four families:
+
+Trust or skepticism — "Is this legit? Why are you messaging me?" Timing — "Not right now." Amount or capacity — "That's more than I'd put into something like this." Deflection — "Send me more info" or "I'll think about it," without any real engagement behind it.
+
+Recognising which family you're dealing with is the first step — each one needs a different response, and treating them all the same is how good prospects get lost.`},
+    {title:"A Generic Response Framework", content:
+`Acknowledge, reframe, re-ask. Acknowledge the objection without arguing or getting defensive — agreeing with part of it costs you nothing and lowers their guard. Reframe by addressing what's actually underneath the objection, which is often unstated (trust objections are rarely really about you; timing objections are sometimes really about not understanding the opportunity yet). Re-ask with something smaller and easier to agree to than the original ask — often just the short call itself, not a financial commitment.
+
+This is a framework, not a script — the actual example responses L2i uses are coming in the next lesson.`},
+    {title:"[Pending] L2i's Example Responses", content:
+`This lesson is waiting on Ayden's real example responses to common objections, so you have specific language to draw from rather than just the general framework.
+
+Once added, treat these the same way as the pitch script — know them well enough to adapt naturally, not recite mechanically.`}
+  ],
+  quiz:[
+    {q:"Which objection family does 'Is this legit?' belong to?", options:["Timing","Trust or skepticism","Amount or capacity","Deflection"], correct:1},
+    {q:"What's the first step in the response framework?", options:["Argue back immediately","Acknowledge the objection without arguing","Ignore it and change the subject","Send the contract anyway"], correct:1},
+    {q:"What does 'reframe' mean in this framework?", options:["Repeating the same point louder","Addressing what's actually underneath the objection, which is often unstated","Ending the conversation","Asking for a larger commitment"], correct:1},
+    {q:"What should the 're-ask' usually be?", options:["A bigger ask than the original one","Something smaller and easier to agree to, like the short call itself","A request for personal financial details","Nothing — there's no need to re-ask"], correct:1},
+    {q:"Is the acknowledge-reframe-re-ask sequence a fixed script?", options:["Yes, it must be used word-for-word every time","No, it's a framework — specific example wording is provided separately", "No, objection handling is never needed","Yes, but only for amount objections"], correct:1}
+  ]
+},
+{
+  key:"s8_booking", title:"Booking, Logging and Reporting",
+  lessons:[
+    {title:"What 'Booked' Actually Means", content:
+`A booking is a real, scheduled call with a closer, where the prospect has knowingly agreed to discuss investing — not just "they replied" or "they seemed interested."
+
+Don't move a Lead to Booked until there's an actual time on the calendar. Moving someone to Booked too early creates false signal for the whole team, including Ayden's report to Theo.`},
+    {title:"Logging It Properly in the CRM", content:
+`Create or update the Lead the moment you make contact — not from memory at the end of the day. Fill in their name, organisation or role, source, an estimated value if you have any sense of it, and notes capturing the wealth-qualification signals from the earlier lesson.
+
+Only move the stage to Booked once a call is genuinely scheduled. The moment you do, the CRM automatically notifies Ayden — so accuracy here isn't just good practice, it's what's actually being reported upward.`},
+    {title:"How the Report Reaches Ayden and Theo", content:
+`Here's exactly what happens mechanically: when you move a Lead to Booked, or a closer marks a Deal Won, the CRM logs a notification. Ayden reviews these in the Report panel and forwards a summary to Theo Johnson, L2i's CEO.
+
+That means Theo is seeing your name attached to your result. Honest, accurate logging isn't bureaucracy — it's the entire reason this system exists, and it's how good work actually gets recognised at the top.`}
+  ],
+  quiz:[
+    {q:"What qualifies as a genuine 'booking'?", options:["Any reply from the prospect","A real, scheduled call with a closer that the prospect has knowingly agreed to","Sending the pitch message","Adding someone to your target list"], correct:1},
+    {q:"When should you create or update a Lead in the CRM?", options:["At the end of the week, from memory","The moment you make contact","Only after they invest","Never — closers handle all logging"], correct:1},
+    {q:"What happens automatically when a Lead is moved to Booked?", options:["Nothing happens automatically","The CRM notifies Ayden","The prospect is charged a fee","The lead is deleted"], correct:1},
+    {q:"Whose name is attached to a booking when Ayden reports to Theo?", options:["No one's — reports are anonymous","The setter who booked it","Only the closer's","Only Ayden's"], correct:1},
+    {q:"Why does accurate logging matter so much?", options:["It's just paperwork with no real impact","It's the actual mechanism by which good work gets seen and credited","It only matters for tax purposes","It doesn't matter once the deal is won"], correct:1}
+  ]
+}
+];
+
+const FINAL_KEY = "s9_final";
+const FINAL_TITLE = "Final Assessment";
+const FINAL_QUIZ = [
+  {q:"What is a setter's main job at L2i?", options:["Negotiate final terms","Open and qualify conversations, then book a call with a closer","Manage budgets","Edit the footage"], correct:1},
+  {q:"What's the strongest reason most wealthy people actually invest in film?", options:["Guaranteed high returns","Status, legacy, access, or genuine passion","Tax avoidance only","They're forced to by their accountant"], correct:1},
+  {q:"What should an opening DM avoid?", options:["Being short","A generic, copy-paste-looking pitch sent to everyone","Mentioning L2i at all","Asking any questions"], correct:1},
+  {q:"What is 'outcome independence' in the setter mindset?", options:["Not caring about results at all","Not needing any one specific person to say yes","Working without any targets","Ignoring the CRM"], correct:1},
+  {q:"Which is a more reliable wealth signal than a single luxury photo?", options:["High follower count alone","Consistent, ownership-related content over time","Lots of emojis in the bio","A blue verification tick alone"], correct:1},
+  {q:"Why are L2i's existing collaborators' followers a good source of prospects?", options:["They're the only people allowed to invest","They carry implicit familiarity and social proof with L2i already","They're guaranteed to say yes","It's faster to message verified accounts only"], correct:1},
+  {q:"What should happen before you ever pitch investment to someone?", options:["Nothing — pitch immediately","Confirm genuine interest and real capacity through conversation first","Wait for them to ask about investing","Check their follower count only"], correct:1},
+  {q:"What does 'Booked' require?", options:["Any positive reply","A real, scheduled call with a closer", "A signed contract","A deposit payment"], correct:1},
+  {q:"What happens automatically when a Lead is moved to Booked?", options:["Nothing","Ayden is notified via the CRM","The prospect is invoiced","The lead is archived"], correct:1},
+  {q:"What's the recommended response to a prospect going quiet?", options:["Message repeatedly until they reply","One polite follow-up, then move on","Create a new account to reach them again","Report them to Instagram"], correct:1}
+];
+
+const TR_FINAL_KEY = "s9_final";
+const TR_FINAL_TITLE = "Final Assessment";
+
+state.training = { loaded:false, view:"home", moduleKey:null, lessonIndex:0, quizAnswers:[], progress:{}, allProgress:[], lastScore:0, lastPassed:false, lastCorrect:0, lastTotal:0 };
+
+function trIsManager(){ return isRole("owner","team_leader","coach"); }
+function trModuleByKey(key){ if(key===TR_FINAL_KEY) return {key:TR_FINAL_KEY, title:TR_FINAL_TITLE, lessons:[], quiz:FINAL_QUIZ}; return CURRICULUM.find(m=>m.key===key); }
+function trAllKeys(){ return [...CURRICULUM.map(m=>m.key), TR_FINAL_KEY]; }
+function trParagraphs(text){ return text.trim().split(/\n\n+/).map(p=>`<p>${esc(p).replace(/\n/g,"<br>")}</p>`).join(""); }
+
+async function loadTrainingData(){
+  const { data: progress } = await sb.from("rep_progress").select("*").eq("user_id", state.user.id);
+  state.training.progress = {};
+  (progress||[]).forEach(p=>{ state.training.progress[p.module_key] = p; });
+  if(trIsManager()){
+    const { data: allProgress } = await sb.from("rep_progress").select("*");
+    state.training.allProgress = allProgress || [];
+  }
+  state.training.loaded = true;
+}
+
+async function renderTrainingHome($main){
+  if(!state.training){ state.training = { loaded:false, view:"home", moduleKey:null, lessonIndex:0, quizAnswers:[], progress:{}, allProgress:[], lastScore:0, lastPassed:false, lastCorrect:0, lastTotal:0 }; }
+  if(!state.training.loaded){
+    $main.innerHTML = `<div class="empty-state">Loading your training…</div>`;
+    await loadTrainingData();
+  }
+  const T = state.training;
+  T.view = "home";
+  const keys = trAllKeys();
+  const passedTotal = keys.filter(k=>T.progress[k] && T.progress[k].passed).length;
+  $main.innerHTML = `
+    <div class="board-header">
+      <h2>Setter Course</h2>
+      <div class="spacer"></div>
+      ${trIsManager()?`<button class="btn-ghost btn-sm" id="trTeamBtn">Team progress</button>`:""}
+    </div>
+    <p class="muted" style="font-size:13px;margin-bottom:8px;">Complete each module in order. You need 80% on a module's quiz to unlock the next one.</p>
+    <div class="progress-bar-track" style="margin-bottom:18px;"><div class="progress-bar-fill" style="width:${Math.round(passedTotal/keys.length*100)}%;"></div></div>
+    ${keys.map((key,i)=>{
+      const mod = trModuleByKey(key);
+      const prog = T.progress[key];
+      const prevKey = keys[i-1];
+      const locked = i>0 && !(T.progress[prevKey] && T.progress[prevKey].passed);
+      return `
+        <div class="module-card ${locked?'locked':''}" ${locked?'':`data-trmod="${key}"`} style="${locked?'':'cursor:pointer;'}">
+          <div class="module-num">${String(i+1).padStart(2,"0")}</div>
+          <div class="module-info">
+            <div class="module-title">${esc(mod.title)}</div>
+            <div class="module-status">${locked?"Locked — finish the previous module first":(prog&&prog.passed?`Passed — ${prog.quiz_score}%`:(prog?`Attempted — ${prog.quiz_score}% (retake to pass)`:"Not started"))}</div>
+          </div>
+          ${prog&&prog.passed?`<span class="pass-badge">PASSED</span>`:""}
+        </div>`;
+    }).join("")}
+  `;
+  $main.querySelectorAll("[data-trmod]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      T.moduleKey = el.dataset.trmod; T.lessonIndex = 0;
+      const mod = trModuleByKey(T.moduleKey);
+      if(mod.lessons.length){ renderTrainingLessons($main); }
+      else { T.quizAnswers = new Array(mod.quiz.length).fill(null); renderTrainingQuiz($main); }
+    });
+  });
+  if(trIsManager()){ const b = document.getElementById("trTeamBtn"); if(b) b.addEventListener("click", ()=>renderTrainingTeamProgress($main)); }
+}
+
+function renderTrainingLessons($main){
+  const T = state.training;
+  const mod = trModuleByKey(T.moduleKey);
+  const lesson = mod.lessons[T.lessonIndex];
+  const isPending = lesson.title.indexOf("[Pending]") === 0;
+  $main.innerHTML = `
+    <a href="#" class="back-link" id="trBack">&larr; Back to course</a>
+    <h2 style="margin-bottom:14px;">${esc(mod.title)}</h2>
+    <div class="lesson-nav">
+      ${mod.lessons.map((l,i)=>`<div class="lesson-dot ${i<T.lessonIndex?'done':''} ${i===T.lessonIndex?'active':''}">${i+1}</div>`).join("")}
+    </div>
+    <h3 style="font-size:16px;margin-bottom:12px;">${esc(lesson.title)}</h3>
+    ${isPending ? `<div class="pending-box">${trParagraphs(lesson.content)}</div>` : `<div class="lesson-content">${trParagraphs(lesson.content)}</div>`}
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      ${T.lessonIndex>0?`<button class="btn-ghost" id="trPrev">Back</button>`:""}
+      <button class="btn-primary" id="trNext">${T.lessonIndex < mod.lessons.length-1 ? "Mark read & continue" : "Continue to quiz"}</button>
+    </div>
+  `;
+  document.getElementById("trBack").addEventListener("click",(e)=>{e.preventDefault();renderTrainingHome($main);});
+  const prevBtn = document.getElementById("trPrev");
+  if(prevBtn) prevBtn.addEventListener("click", ()=>{ T.lessonIndex--; renderTrainingLessons($main); });
+  document.getElementById("trNext").addEventListener("click", ()=>{
+    if(T.lessonIndex < mod.lessons.length-1){ T.lessonIndex++; renderTrainingLessons($main); }
+    else { T.quizAnswers = new Array(mod.quiz.length).fill(null); renderTrainingQuiz($main); }
+  });
+}
+
+function renderTrainingQuiz($main){
+  const T = state.training;
+  const mod = trModuleByKey(T.moduleKey);
+  if(!T.quizAnswers || T.quizAnswers.length !== mod.quiz.length) T.quizAnswers = new Array(mod.quiz.length).fill(null);
+  $main.innerHTML = `
+    <a href="#" class="back-link" id="trBack">&larr; Back to course</a>
+    <h2 style="margin-bottom:6px;">${esc(mod.title)} — Quiz</h2>
+    <p class="muted" style="font-size:13px;margin-bottom:18px;">You need 80% to pass. ${mod.quiz.length} questions.</p>
+    ${mod.quiz.map((q,qi)=>`
+      <div class="quiz-q">
+        <div class="quiz-q-title">${qi+1}. ${esc(q.q)}</div>
+        ${q.options.map((opt,oi)=>`<button class="quiz-opt" data-q="${qi}" data-o="${oi}">${esc(opt)}</button>`).join("")}
+      </div>`).join("")}
+    <button class="btn-primary" id="trSubmit" style="width:100%;margin-top:6px;" disabled>Submit answers</button>
+  `;
+  document.getElementById("trBack").addEventListener("click",(e)=>{e.preventDefault();renderTrainingHome($main);});
+  $main.querySelectorAll(".quiz-opt").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const qi = Number(btn.dataset.q);
+      T.quizAnswers[qi] = Number(btn.dataset.o);
+      $main.querySelectorAll(`.quiz-opt[data-q="${qi}"]`).forEach(b=>b.classList.remove("selected"));
+      btn.classList.add("selected");
+      document.getElementById("trSubmit").disabled = !T.quizAnswers.every(a=>a!==null);
+    });
+  });
+  document.getElementById("trSubmit").addEventListener("click", ()=>submitTrainingQuiz($main));
+}
+
+async function submitTrainingQuiz($main){
+  const T = state.training;
+  const mod = trModuleByKey(T.moduleKey);
+  let correct = 0;
+  mod.quiz.forEach((q,i)=>{ if(T.quizAnswers[i]===q.correct) correct++; });
+  const score = Math.round((correct/mod.quiz.length)*100);
+  const passed = score >= 80;
+  const payload = { user_id: state.user.id, module_key: T.moduleKey, quiz_score: score, passed, updated_at: new Date().toISOString() };
+  if(passed) payload.completed_at = new Date().toISOString();
+  const { error } = await sb.from("rep_progress").upsert(payload, { onConflict: "user_id,module_key" });
+  if(error){ toast(error.message, true); return; }
+  T.progress[T.moduleKey] = payload;
+  T.lastScore = score; T.lastPassed = passed; T.lastCorrect = correct; T.lastTotal = mod.quiz.length;
+  renderTrainingResult($main);
+}
+
+function renderTrainingResult($main){
+  const T = state.training;
+  const mod = trModuleByKey(T.moduleKey);
+  $main.innerHTML = `
+    <div class="result-card">
+      <div class="result-score">${T.lastScore}%</div>
+      <div style="font-size:14px;color:${T.lastPassed?'var(--good)':'var(--danger)'};font-weight:600;margin-top:6px;">${T.lastPassed?"PASSED":"NOT YET — 80% NEEDED"}</div>
+      <div class="muted" style="margin-top:10px;font-size:13px;">${esc(state.profile.full_name)} · ${esc(mod.title)}</div>
+      <div class="muted" style="font-size:12px;">${T.lastCorrect}/${T.lastTotal} correct · ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+      <div style="margin-top:24px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        ${!T.lastPassed?`<button class="btn-ghost" id="trRetake">Retake quiz</button>`:""}
+        <button class="btn-primary" id="trHome">${T.lastPassed?"Continue":"Back to course"}</button>
+      </div>
+    </div>
+  `;
+  const retake = document.getElementById("trRetake");
+  if(retake) retake.addEventListener("click", ()=>{ T.quizAnswers=null; renderTrainingQuiz($main); });
+  document.getElementById("trHome").addEventListener("click", ()=>renderTrainingHome($main));
+}
+
+function renderTrainingTeamProgress($main){
+  const T = state.training;
+  const keys = trAllKeys();
+  $main.innerHTML = `
+    <a href="#" class="back-link" id="trBack">&larr; Back to course</a>
+    <h2 style="margin-bottom:14px;">Team Progress</h2>
+    <div style="overflow-x:auto;">
+    <table>
+      <tr><th>Rep</th><th>Role</th><th>Passed</th><th>Latest</th></tr>
+      ${state.allProfiles.map(p=>{
+        const rows = T.allProgress.filter(r=>r.user_id===p.id);
+        const passedCount = rows.filter(r=>r.passed).length;
+        const latest = rows.slice().sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
+        return `<tr><td>${esc(p.full_name)}</td><td>${esc(p.role.replace(/_/g," "))}</td><td>${passedCount}/${keys.length}</td><td>${latest?esc(latest.module_key)+" — "+latest.quiz_score+"%":"—"}</td></tr>`;
+      }).join("")}
+    </table>
+    </div>
+  `;
+  document.getElementById("trBack").addEventListener("click",(e)=>{e.preventDefault();renderTrainingHome($main);});
+}
+
+init();
+</script>
+</body>
+</html>
