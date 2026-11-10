@@ -44,7 +44,8 @@ alter table public.leads
   add column if not exists source_detail     text,
   add column if not exists imported_by       uuid,
   add column if not exists next_action_at    date,
-  add column if not exists last_contacted_at timestamptz;
+  add column if not exists last_contacted_at timestamptz,
+  add column if not exists follow_ups        int not null default 0;
 
 do $$ begin
   if not exists (select 1 from information_schema.columns

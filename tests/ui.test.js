@@ -4,7 +4,7 @@ const { chromium, devices } = require('playwright'); const fs = require('fs'); c
 const NM = path.join(__dirname, 'node_modules'); const fails = [];
 const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); if (!cond) fails.push(label); };
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 14'] }); const p = await ctx.newPage();
+  const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 14'], permissions: ['clipboard-read', 'clipboard-write'] }); const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
   await ctx.route('**/*', async r => { const u = r.request().url();
     if (u.startsWith('https://l2i.test/')) return r.fulfill({ path: path.join(__dirname, '..', 'index.html'), contentType: 'text/html' });
@@ -53,6 +53,23 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click(`[data-qa="sent"][data-id="${c}"]`); await p.waitForTimeout(200);
   await p.click(`[data-qa="no"][data-id="${c}"]`); await p.waitForTimeout(300);
   ok((await get(c)).slice(0, 3).join() === 'lost,declined,true', '"Said no" blocks further contact');
+  // copy & open, undo, follow-up cycle
+  const d = await pick(true);
+  await p.click(`[data-qa-copy="opener"][data-id="${d}"]`); await p.waitForTimeout(300);
+  await p.bringToFront();
+  ok(/Built Different/.test(await p.evaluate(() => navigator.clipboard.readText())) && /paid commercial arrangement/.test(await p.evaluate(() => navigator.clipboard.readText())), '"Copy message & open" copies the permission message');
+  await p.click(`[data-qa="sent"][data-id="${d}"]`); await p.waitForTimeout(200);
+  await p.click('#toastUndoBtn'); await p.waitForTimeout(300);
+  ok((await get(d)).join() === 'new,not_asked,false,false', 'Undo restores the lead');
+  await p.click(`[data-qa="sent"][data-id="${d}"]`); await p.waitForTimeout(200);
+  await p.evaluate(i => { state.leads.find(x => x.id === i).next_action_at = '2026-01-01'; renderMain(); }, d);
+  ok(!!(await p.$(`[data-qa-copy="followup"][data-id="${d}"]`)), 'due lead offers the follow-up message');
+  await p.click(`[data-qa="followed"][data-id="${d}"]`); await p.waitForTimeout(200);
+  await p.evaluate(i => { state.leads.find(x => x.id === i).next_action_at = '2026-01-01'; renderMain(); }, d);
+  ok(!(await p.$(`[data-qa="followed"][data-id="${d}"]`)) && !!(await p.$(`[data-qa="noreply"][data-id="${d}"]`)), 'only one follow-up, then close');
+  await p.click(`[data-qa="noreply"][data-id="${d}"]`); await p.waitForTimeout(200);
+  ok((await get(d))[0] === 'lost', '"No reply — close" closes the lead');
+  ok(/sent today/.test(await p.textContent('#repStrip')), 'rep progress strip shows');
   const u = await pick(false);
   await p.click(`[data-qa="sent"][data-id="${u}"]`); await p.waitForTimeout(300);
   ok(!!(await p.$('#f_next')), 'unscored lead must be scored before a message is logged');
@@ -60,6 +77,10 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.check('[data-score="real_business"]'); await p.selectOption('#f_stage', 'call_booked'); await p.fill('#f_calldate', '2026-12-01T10:00');
   await p.click('#mSave'); await p.waitForTimeout(300);
   ok(/permission/i.test(await p.textContent('#toast')), 'call cannot be booked without recorded permission');
+  await p.evaluate(() => closeModal());
+  await p.click('[data-pipeline="reports"]'); await p.waitForTimeout(300);
+  ok(!!(await p.$('#outreachReport')) && /Ayden/.test(await p.textContent('#outreachReport')), 'outreach report lists rep activity');
+  ok((await p.$$('meta[name="apple-mobile-web-app-capable"]')).length === 1 && !!(await p.$('link[rel="apple-touch-icon"]')), 'home-screen app tags and icon present');
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs));
   await b.close();
   if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nALL PASSED');

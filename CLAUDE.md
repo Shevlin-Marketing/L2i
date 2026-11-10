@@ -27,6 +27,7 @@ Backend is Supabase (auth, Postgres, RLS). The key in `index.html` is the publis
 - **Imports** (screenshot OCR via Tesseract.js on-device, or pasted CSV/JSON) go through the `import_leads` RPC, which has a dry-run mode used for the review screen.
 - **Daily allocation** is the `claim_daily_leads` RPC: up to `DAILY_CAP` (100) per rep per London day, `FOR UPDATE SKIP LOCKED` so two reps never get the same lead, mutual-connection leads first, untouched leads recycled after `RECYCLE_DAYS`.
 - **Permission and opt-out**: `permission_status` must be `granted` before a lead can reach `call_booked`. Declines and "do not contact" go through `mark_do_not_contact`, which also writes the permanent `do_not_contact` table so the person can't be re-imported.
+- **Outreach flow on each lead card** (`quickActions` / `quickOutcome`): *Copy message & open* → *Message sent* (sets `permission_status = asked` and a follow-up date) → *Said yes* / *Said no*. When a follow-up is due the rep gets exactly one follow-up (`follow_ups`), then *No reply — close*. Every one-tap outcome except a decline can be undone from the toast.
 - Leads are fetched in pages of 1,000 (`fetchAllLeads`) and the list draws at most `RENDER_CAP` rows per stage.
 
 ## Things not to add
