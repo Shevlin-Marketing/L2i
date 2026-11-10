@@ -7,6 +7,7 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 14'], permissions: ['clipboard-read', 'clipboard-write'] }); const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
   await ctx.route('**/*', async r => { const u = r.request().url();
+    if (u.startsWith('https://l2i.test/shot/')) return r.fulfill({ body: Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64'), contentType: 'image/gif' });
     if (u.startsWith('https://l2i.test/')) return r.fulfill({ path: path.join(__dirname, '..', 'index.html'), contentType: 'text/html' });
     if (u.includes('@supabase/supabase-js')) return r.fulfill({ path: path.join(__dirname, 'mock-supabase.js'), contentType: 'text/javascript' });
     const m = u.match(/cdn\.jsdelivr\.net\/npm\/(@?[^@\/]+(?:\/[^@\/]+)?)@[^\/]+\/(.*)$/) || u.match(/cdn\.jsdelivr\.net\/npm\/(@tesseract\.js-data\/eng)\/(.*)$/);
@@ -16,19 +17,50 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   ok(await p.evaluate(() => state.leads.length) === 3001, 'loads every lead past the 1,000-row page limit');
   ok(await p.$$eval('.list-row', e => e.length) < 200, 'pool hidden by default, list stays light');
 
-  // screenshot import
+  // screenshot import: profiles + message threads, several people at once
   await p.click('#importBtn');
-  await p.setInputFiles('#impFiles', ['ig_new_dark', 'ig_old_light', 'ig_list_light', 'li_light'].map(k => path.join(__dirname, 'shots', k + '.png')));
+  await p.setInputFiles('#impFiles', ['ig_new_dark', 'dm_jane', 'ig_old_light', 'ig_list_light', 'li_light', 'dm_sofia', 'ig_tricky_light', 'ig_noname_light', 'ig_old_light', 'dm_jane', 'ig_tricky_scrolled', 'ig_list_light'].map(k => path.join(__dirname, 'shots', k + '.png')));
   await p.waitForFunction(() => /ready/.test(document.getElementById('impStatus')?.textContent || ''), null, { timeout: 240000 });
-  const rows = await p.evaluate(() => IMPORT.rows.map(r => ({ n: r.name, h: r.contact_handle, p: r.contact_platform, o: r.organisation, m: r.mutual_name, s: r._status })));
+  const rows = await p.evaluate(() => IMPORT.rows.map(r => ({ n: r.name, h: r.contact_handle, p: r.contact_platform, o: r.organisation, m: r.mutual_name, ph: r.contact_phone, em: r.contact_email, s: r._status, chk: r._nameCheck, notes: r.notes, shots: r._shots.map(x => x.kind).join('+'), msg: r._shots.map(x => x.text || '').join(' ') })));
   const by = h => rows.find(r => r.h === h) || {};
-  ok(rows.length === 9, 'OCR finds 9 people in 4 screenshots (got ' + rows.length + ')');
-  ok(by('@jane.founder').n === 'Jane Okafor' && by('@jane.founder').s === 'duplicate', 'dark-mode profile read; existing lead flagged duplicate');
-  ok(by('@marcus_hale.co').o === 'Hale Property Group' && /priya/.test(by('@marcus_hale.co').m), 'business and mutual read from bio');
+  ok(rows.length === 11, 'twelve screenshots, four of them repeats or extras, still become 11 leads (got ' + rows.length + ')');
+  ok(await p.evaluate(() => IMPORT.repeats) === 3 && /3 repeated screenshots skipped/.test(await p.textContent('#impStatus')), 'the same screenshot uploaded again is recognised and skipped');
+  ok(await p.evaluate(() => sameHandle('@jane.founder', 'jane.f0under') && sameHandle('marcus_hale.co', 'marcushale.co') && sameHandle('the.kitchen.co', 'the.kitchen.c0') && !sameHandle('amelia.brooks', 'amelia.banks') && !sameHandle('dev_patel88', 'dev_patel89x')), 'a handle misread by one character still matches; different handles do not');
+  const jane = by('@jane.founder'), sofia = by('@sofia.marin'), hale = by('@hale_developments');
+  ok(jane.n === 'Jane Okafor' && jane.s === 'duplicate' && jane.shots === 'profile+messages', 'profile and message thread grouped on one lead; existing lead flagged');
+  ok(/following up/i.test(jane.msg) && /send me more/i.test(jane.msg), 'both sides of a dark-mode message thread are read');
+  ok(jane.o === 'okafor.studio' && /Role: Founder/.test(jane.notes) && /Website: okafor\.studio/.test(jane.notes), 'role, business and website go to their own fields');
+  ok(by('@marcus_hale.co').o === 'Hale Property Group' && /priya/.test(by('@marcus_hale.co').m) && /Location: Hertfordshire/.test(by('@marcus_hale.co').notes), 'business, mutual and location read from bio');
   ok(rows.some(r => r.p === 'linkedin' && r.n === 'Daniel Brooks' && r.o === 'Brooks Logistics Ltd'), 'LinkedIn profile read');
-  await p.click('#impSave'); await p.waitForTimeout(500);
-  ok(await p.evaluate(() => __db.leads.length) === 3009, 'only the 8 new people saved');
-  await p.evaluate(() => { IMPORT = null; closeModal(); });
+  ok(sofia.n === 'Sofia Marin' && sofia.em === 'hello@sofiamarin.co.uk' && sofia.shots === 'messages+profile+profile', 'name split from its tagline; email found; messages uploaded before the profile still grouped');
+  ok(sofia.ph === '07700 900789' && sofia.o === 'Brand Coach' && /Bookings open/.test(sofia.notes) && (sofia.notes.match(/Location: London/g) || []).length === 1, 'a second screenshot of the same profile adds its new details to the same lead, without repeats');
+  ok(!/Dream Big|Helping/.test(sofia.n) && /Bio: Helping Founders Scale/.test(sofia.notes), 'bio lines stay in the bio');
+  ok(hale.n === '' && hale.chk === true && hale.o === 'Northfield Homes' && hale.ph === '07700 900456' && /Property Investor/.test(hale.notes), 'no display name → name left blank and flagged, not filled from the bio');
+  ok(await p.evaluate(() => ['Property Investor', 'Building Homes That Last', 'Dream Big', 'Entrepreneur', 'Helping Founders Scale', 'Brand Coach', 'Public Figure', 'London'].every(x => nameCandidate(x).score === 0)
+     && ["Jane Okafor", "Marcus Hale", "Siobhan O'Brien", "Jean-Luc van der Berg", "J. Smith", "MARCUS HALE"].every(x => nameCandidate(x).score > 0)), 'name check rejects bio lines and accepts real names');
+  // move a screenshot to a new lead and back out again
+  const si = rows.indexOf(sofia);
+  await p.click(`[data-shot-row="${si}"][data-shot="0"]`); await p.selectOption(`[data-shot-move="${si}"]`, 'new');
+  ok(await p.evaluate(i => IMPORT.rows[i]._shots.length === 2 && IMPORT.rows.at(-1)._shots.length === 1, si), 'a screenshot can be moved to another lead');
+  await p.evaluate(i => { const last = IMPORT.rows.pop(); IMPORT.rows[i]._shots.unshift(last._shots[0]); renderImportRows(); }, si);
+  await p.click('#impSave');
+  await p.waitForFunction(() => IMPORT && IMPORT.rows.length === 1 && !IMPORT.busy, null, { timeout: 30000 });
+  ok(await p.evaluate(() => __db.leads.length) === 3011, 'the 10 new people saved');
+  ok(await p.evaluate(() => (__db.lead_files || []).length === 6 && Object.keys(__store).length === 6 && __db.lead_files.every(f => !!f.hash)), 'their 6 screenshots uploaded and recorded with a fingerprint');
+  ok(/Messages \(screenshot/.test(await p.evaluate(() => __db.leads.find(l => l.contact_handle === '@sofia.marin').notes)), 'message text saved into the lead notes');
+  await p.click('[data-attach-existing="0"]');
+  await p.waitForFunction(() => !IMPORT, null, { timeout: 30000 });
+  ok(await p.evaluate(() => __db.lead_files.filter(f => f.lead_id === 'l0').length === 2 && /Messages/.test(__db.leads.find(l => l.id === 'l0').notes)), 'screenshots for someone already in the CRM are added to their existing lead');
+  // the same image can't be stored on a lead twice
+  await p.evaluate(() => openLeadModal('l0')); await p.waitForSelector('#leadShotKind');
+  await p.selectOption('#leadShotKind', 'profile');
+  await p.setInputFiles('#leadShotFiles', [path.join(__dirname, 'shots', 'ig_new_dark.png')]);
+  await p.waitForFunction(() => /already on this lead/.test(document.getElementById('toast').textContent), null, { timeout: 15000 });
+  ok(await p.evaluate(() => __db.lead_files.filter(f => f.lead_id === 'l0').length) === 2, 'a screenshot already on the lead is not stored again');
+  await p.evaluate(() => closeModal());
+  await p.evaluate(() => openLeadModal('l0')); await p.waitForSelector('.shot img');
+  ok(await p.$$eval('.shot', e => e.length) === 2 && !!(await p.$('#leadShotFiles')), 'lead shows its screenshots and lets you add more');
+  await p.evaluate(() => closeModal());
 
   // paste import
   await p.click('#importBtn'); await p.click('#impPasteToggle');
