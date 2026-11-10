@@ -28,7 +28,7 @@ create function extensions.crypt(text, text) returns text language sql as $$ sel
 grant usage on schema extensions to anon, authenticated;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql', '06_screenshot_hash.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql', '06_screenshot_hash.sql', '07_import_stage.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 
@@ -113,6 +113,16 @@ await q(`reset role; set app.uid=''; set role anon;`);
 ok((await q(`select count(*)::int c from storage.objects`))[0].c === 0, 'signed-out visitors cannot see screenshots');
 await as(1); await q(`delete from leads where id='${imp[0].id}'`);
 ok((await q(`select count(*)::int c from lead_files`))[0].c === 0, 'deleting a lead removes its screenshot records');
+
+// imports land at the stage the conversation has reached
+await as(2);
+const st = (await q(`select import_leads('${P}','[{"name":"Booked Person","contact_handle":"@booked.person","stage":"call_booked","call_date":"2026-12-01T15:00:00Z","contact_phone":"07700 900555"},{"name":"Replied Person","contact_handle":"@replied.person","stage":"replied","permission_status":"granted"},{"name":"Sent Person","contact_handle":"@sent.person","stage":"dm_opened"},{"name":"No Date","contact_handle":"@no.date","stage":"call_booked"},{"name":"Cheeky","contact_handle":"@cheeky.one","stage":"won"}]'::jsonb) r`))[0].r;
+const sl = async h => (await q(`select stage, owner_id, permission_status, call_date is not null has_call, next_action_at is not null has_follow, last_contacted_at is not null contacted from leads where contact_handle='${h}'`))[0];
+const bp = await sl('@booked.person'), rp = await sl('@replied.person'), sp = await sl('@sent.person'), nd = await sl('@no.date'), ch = await sl('@cheeky.one');
+ok(st.added === 5 && bp.stage === 'call_booked' && bp.owner_id === U(2) && bp.permission_status === 'granted' && bp.has_call, 'a booked call imports as Call booked, owned by the importer, with permission recorded');
+ok(rp.stage === 'replied' && rp.permission_status === 'granted' && rp.has_follow && sp.stage === 'dm_opened' && sp.permission_status === 'asked' && sp.contacted, 'replied and DM-sent leads import at their stage with a follow-up');
+ok(nd.stage === 'replied' && ch.stage === 'new' && ch.owner_id === null, 'a call with no date falls back to Replied; an import cannot set a stage like Won');
+ok((await q(`select count(*)::int c from notifications where message like 'Call booked — Booked Person%'`))[0].c === 1, 'an imported booked call appears in the report');
 
 // username sign-up, called signed-out
 await q(`reset role; set app.uid=''; set role anon;`);

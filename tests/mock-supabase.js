@@ -23,7 +23,7 @@ const rpc=async(name,a)=>{
    else if(h&&seen.has(h)){st='duplicate';d='Appears twice in this import'}
    else if(h&&db.leads.some(l=>nh(l.contact_handle)===h)){st='duplicate';d='Already in Built Different (dm_opened, Ayden Shevlin)'}
    let nid=null, ex=null; const hit=h&&db.leads.find(l=>nh(l.contact_handle)===h); if(st==='duplicate'&&hit) ex=hit.id;
-   if(st==='ok'){ if(h)seen.add(h); if(!a.p_dry_run){nid='n'+(seq++);db.leads.push({id:nid,project_id:a.p_project,...r,stage:'new',owner_id:null,permission_status:'not_asked',created_at:now()});added++;}}
+   if(st==='ok'){ if(h)seen.add(h); if(!a.p_dry_run){nid='n'+(seq++);const stg=['dm_opened','replied','call_booked'].includes(r.stage)?(r.stage==='call_booked'&&!r.call_date?'replied':r.stage):'new';db.leads.push({id:nid,project_id:a.p_project,...r,stage:stg,owner_id:stg==='new'?null:'u1',permission_status:stg==='call_booked'?'granted':(stg==='new'?'not_asked':(r.permission_status||'asked')),call_date:stg==='call_booked'?r.call_date:null,created_at:now()});added++;}}
    out.push({index:i,status:st,detail:d,id:nid,existing_id:ex});}); return {data:{added,rows:out},error:null}; }
  if(name==='claim_daily_leads'){ const pool=db.leads.filter(l=>l.stage==='new'&&!l.owner_id).sort((x,y)=>(!x.mutual_name)-(!y.mutual_name)); const take=pool.slice(0,a.p_cap); take.forEach(l=>{l.owner_id=a.p_user;l.assigned_at=now()}); return {data:{claimed:take.length,today:take.length,cap:a.p_cap,pool_left:pool.length-take.length,recycled:0},error:null}; }
  if(name==='l2i_sign_up'){ window.__auth.signups.push(a); return {data:{username:a.p_username},error:null}; }
