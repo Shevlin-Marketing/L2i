@@ -17,13 +17,18 @@ create table auth.users(id uuid primary key, email text, raw_user_meta_data json
   encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, created_at timestamptz, updated_at timestamptz,
   confirmation_token text, recovery_token text, email_change_token_new text, email_change text);
 create table auth.identities(id uuid primary key, user_id uuid, provider_id text, provider text, identity_data jsonb, last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz);
+create schema storage;
+create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+alter table storage.objects enable row level security;
+grant usage on schema storage to authenticated, anon; grant select, insert, delete on storage.objects to authenticated, anon;
 create schema extensions;
 create function extensions.gen_salt(text) returns text language sql as $$ select 'salt' $$;
 create function extensions.crypt(text, text) returns text language sql as $$ select md5($1 || $2) $$;
 grant usage on schema extensions to anon, authenticated;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 
@@ -95,6 +100,20 @@ ok(String(await denied(`select l2i_role()`)).includes('permission denied'), 'sig
 await as(2);
 ok(String(await denied(`select l2i_seed_stages()`)).startsWith('ERR'), 'trigger functions cannot be called directly');
 await as(0);
+// screenshots on a lead
+await as(2);
+const imp = (await q(`select import_leads('${P}','[{"name":"Shot Person","contact_handle":"@shot.person","contact_email":"Shot@Example.com"},{"name":"Jane Dup","contact_handle":"@jane.founder"}]'::jsonb) r`))[0].r.rows;
+ok(!!imp[0].id && imp[1].status === 'duplicate' && !!imp[1].existing_id, 'import returns the new lead id, and the existing id for a duplicate');
+ok((await q(`select contact_email from leads where id='${imp[0].id}'`))[0].contact_email === 'shot@example.com', 'email is saved on import');
+await q(`insert into storage.objects(bucket_id,name) values ('lead-shots','${imp[0].id}/a.jpg'); insert into lead_files(lead_id,path,kind,created_by) values ('${imp[0].id}','${imp[0].id}/a.jpg','profile','${U(2)}')`);
+ok(String(await denied(`insert into storage.objects(bucket_id,name) values ('other-bucket','x.jpg') returning id`)).startsWith('ERR'), 'uploads are limited to the lead screenshots bucket');
+await as(4);
+ok(String(await denied(`insert into lead_files(lead_id,path,kind,created_by) values ('${imp[0].id}','c.jpg','other','${U(4)}') returning id`)).startsWith('ERR') && (await q(`select count(*)::int c from lead_files`))[0].c === 1, 'a coach can view screenshots but not add them');
+await q(`reset role; set app.uid=''; set role anon;`);
+ok((await q(`select count(*)::int c from storage.objects`))[0].c === 0, 'signed-out visitors cannot see screenshots');
+await as(1); await q(`delete from leads where id='${imp[0].id}'`);
+ok((await q(`select count(*)::int c from lead_files`))[0].c === 0, 'deleting a lead removes its screenshot records');
+
 // username sign-up, called signed-out
 await q(`reset role; set app.uid=''; set role anon;`);
 ok((await q(`select l2i_sign_up('@New.Rep','longenough1','New Rep') r`))[0].r.username === 'new.rep', 'signed-out visitor can create an account by username');
