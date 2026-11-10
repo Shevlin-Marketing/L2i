@@ -16,7 +16,7 @@ create schema auth;
 create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 
@@ -82,4 +82,10 @@ ok(pr && pr.slate_number === 1 && pr.production_stage === 'pre_production', 'win
 await as(2);
 ok(String(await denied(`insert into notifications(project_id,message) values ('${P}','fake') returning id`)).startsWith('ERR'), 'report entries cannot be faked from the app');
 
+await q(`reset role; set app.uid=''; set role anon;`);
+ok(String(await denied(`select import_leads('${P}','[]'::jsonb)`)).includes('permission denied'), 'signed-out callers cannot run the import function');
+ok(String(await denied(`select l2i_role()`)).includes('permission denied'), 'signed-out callers cannot run the role helper');
+await as(2);
+ok(String(await denied(`select l2i_seed_stages()`)).startsWith('ERR'), 'trigger functions cannot be called directly');
+await as(0);
 if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nDATABASE CHECKS PASSED');
