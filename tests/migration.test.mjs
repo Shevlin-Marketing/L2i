@@ -28,7 +28,7 @@ create function extensions.crypt(text, text) returns text language sql as $$ sel
 grant usage on schema extensions to anon, authenticated;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql', '06_screenshot_hash.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 

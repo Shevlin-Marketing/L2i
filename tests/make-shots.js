@@ -43,6 +43,11 @@ const pages = {
   <div style="padding:4px 16px;font-size:14px;line-height:1.4"><div style="font-weight:600">Sofia Marin | Brand Coach</div><div style="color:#666">Entrepreneur</div><div>Helping Founders Scale</div><div>Dream Big</div><div>London, UK</div><div>hello@sofiamarin.co.uk</div><div style="color:#06c">sofiamarin.co.uk</div>
   <div style="margin-top:6px">Followed by tom.reeves and 2 others</div></div>
   <div style="display:flex;gap:8px;padding:12px 16px">${btn('Follow','#0af')}${btn('Message','#eee')}</div>`),
+ ig_tricky_scrolled: base('#fff','#111','#666',`
+  <div style="display:flex;gap:18px;padding:10px 16px;align-items:center">${avatar('#b7a')}
+   <div style="flex:1;display:flex;justify-content:space-around">${stat('412','posts')}${stat('28.1K','followers')}${stat('903','following')}</div></div>
+  <div style="padding:4px 16px;font-size:14px;line-height:1.4"><div style="font-weight:600">Sofia Marin | Brand Coach</div><div>Founder of Marin Studio</div><div>07700 900789</div><div>Bookings open for 2027</div></div>
+  <div style="display:flex;gap:8px;padding:12px 16px">${btn('Follow','#0af')}${btn('Message','#eee')}</div>`),
  ig_noname_light: base('#fff','#111','#666',`
   <div style="padding:8px 16px;font-weight:700;font-size:20px">hale_developments</div>
   <div style="display:flex;gap:18px;padding:10px 16px;align-items:center">${avatar('#789')}
