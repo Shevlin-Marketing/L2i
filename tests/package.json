@@ -1,0 +1,12 @@
+{
+  "name": "l2i-crm-tests",
+  "private": true,
+  "scripts": {
+    "test": "node migration.test.mjs && node make-shots.js && node ui.test.js"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.2.17",
+    "@tesseract.js-data/eng": "1.0.0",
+    "tesseract.js": "5.1.1"
+  }
+}
