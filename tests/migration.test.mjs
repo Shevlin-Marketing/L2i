@@ -13,10 +13,17 @@ const as = async n => { await q(`reset role; set app.uid='${n ? U(n) : ''}'; ${n
 await q(`
 create role authenticated; create role anon;
 create schema auth;
-create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
+create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb, instance_id uuid, aud text, role text,
+  encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, created_at timestamptz, updated_at timestamptz,
+  confirmation_token text, recovery_token text, email_change_token_new text, email_change text);
+create table auth.identities(id uuid primary key, user_id uuid, provider_id text, provider text, identity_data jsonb, last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz);
+create schema extensions;
+create function extensions.gen_salt(text) returns text language sql as $$ select 'salt' $$;
+create function extensions.crypt(text, text) returns text language sql as $$ select md5($1 || $2) $$;
+grant usage on schema extensions to anon, authenticated;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 
@@ -88,4 +95,12 @@ ok(String(await denied(`select l2i_role()`)).includes('permission denied'), 'sig
 await as(2);
 ok(String(await denied(`select l2i_seed_stages()`)).startsWith('ERR'), 'trigger functions cannot be called directly');
 await as(0);
+// username sign-up, called signed-out
+await q(`reset role; set app.uid=''; set role anon;`);
+ok((await q(`select l2i_sign_up('@New.Rep','longenough1','New Rep') r`))[0].r.username === 'new.rep', 'signed-out visitor can create an account by username');
+ok(String(await denied(`select l2i_sign_up('new.rep','longenough1','Copy')`)).includes('taken'), 'usernames are unique');
+ok(String(await denied(`select l2i_sign_up('a b','longenough1','X')`)).startsWith('ERR') && String(await denied(`select l2i_sign_up('okname','short','X')`)).startsWith('ERR'), 'bad usernames and short passwords are refused');
+await as(0);
+const nu = (await q(`select p.role, p.approved, p.full_name, u.email, u.email_confirmed_at is not null conf, u.encrypted_password <> 'longenough1' hashed, (select count(*)::int from auth.identities i where i.user_id=u.id) ids from auth.users u join profiles p on p.id=u.id where u.email='new.rep@l2i.local'`))[0];
+ok(nu && nu.role === 'setter' && !nu.approved && nu.conf && nu.hashed && nu.ids === 1 && nu.full_name === 'New Rep', 'new account is confirmed, hashed, and waits for approval as a setter');
 if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nDATABASE CHECKS PASSED');

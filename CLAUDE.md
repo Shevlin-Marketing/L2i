@@ -5,10 +5,12 @@ Single-file CRM for L2i Productions (Built Different docuseries outreach). Owner
 ## Layout
 
 - `index.html` — the whole app: CSS, HTML and JS in one file, no build step. Served by GitHub Pages from `main` (see `CNAME`), so **a push to `main` is a live deploy**.
-- `supabase/01_base_schema.sql`, `02_import_allocation.sql`, `03_hardening.sql` — the whole database, in run order: tables, sign-up trigger (first user becomes the approved Owner), row-level security by role, stage triggers, then import/de-duplication/allocation/opt-out. Every file must be safe to re-run. New changes go in a new numbered file.
+- `supabase/01_base_schema.sql`, `02_import_allocation.sql`, `03_hardening.sql`, `04_username_signup.sql` — the whole database, in run order: tables, sign-up trigger (first user becomes the approved Owner), row-level security by role, stage triggers, then import/de-duplication/allocation/opt-out. Every file must be safe to re-run. New changes go in a new numbered file.
 - `tests/` — `npm install && npm test` runs both schema files twice on an empty Postgres (PGlite) and checks sign-up, row-level security and the RPCs as real roles, generates mock screenshots, then drives the app at iPhone 14 size against `mock-supabase.js`. Needs Playwright + Chromium.
 
 Backend is the Supabase project **L2i CRM** (ref `kbxpnmjxkxtordfzygjb`, London, in the "Shevlin coaching" organisation). The key in `index.html` is the publishable key. With the Supabase connector, apply schema changes with `apply_migration` and keep the matching file in `supabase/` identical; the connector auto-cancels statements it treats as destructive (`drop ... if exists`, some `revoke`s), so split those out and tell Ayden if one needs running by hand. To check behaviour on the live database without leaving data behind, run a `do $$ ... raise exception 'RESULT %', ...; end $$` block so everything rolls back.
+
+**Sign-in is by username, with no email step.** Each account is stored in Supabase Auth as `<username>@l2i.local`, already confirmed. Sign-up goes through the `l2i_sign_up` RPC (callable signed-out), which creates the auth user directly; the app then signs in with `usernameToLogin()`. Don't switch back to `sb.auth.signUp`, which would try to send a confirmation email. The first account created is the Owner (`@admin`); never put a password in this repo, it is public.
 
 ## Rules for changing it
 

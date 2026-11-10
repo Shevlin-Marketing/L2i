@@ -25,7 +25,9 @@ const rpc=async(name,a)=>{
    if(st==='ok'){ if(h)seen.add(h); if(!a.p_dry_run){db.leads.push({id:'n'+(seq++),project_id:a.p_project,...r,stage:'new',owner_id:null,permission_status:'not_asked',created_at:now()});added++;}}
    out.push({index:i,status:st,detail:d});}); return {data:{added,rows:out},error:null}; }
  if(name==='claim_daily_leads'){ const pool=db.leads.filter(l=>l.stage==='new'&&!l.owner_id).sort((x,y)=>(!x.mutual_name)-(!y.mutual_name)); const take=pool.slice(0,a.p_cap); take.forEach(l=>{l.owner_id=a.p_user;l.assigned_at=now()}); return {data:{claimed:take.length,today:take.length,cap:a.p_cap,pool_left:pool.length-take.length,recycled:0},error:null}; }
+ if(name==='l2i_sign_up'){ window.__auth.signups.push(a); return {data:{username:a.p_username},error:null}; }
  if(name==='mark_do_not_contact'){ const l=db.leads.find(x=>x.id===a.p_lead); l.do_not_contact=true; l.opted_out_at=now(); return {data:null,error:null}; }
 };
-window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),signOut:async()=>({})},from:t=>new Q(t),rpc})};
+window.__auth={signups:[],logins:[]};
+window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),signOut:async()=>({}),signInWithPassword:async(c)=>{window.__auth.logins.push(c.email);return c.password==='wrongpass1'?{data:{},error:{message:'Invalid login credentials'}}:{data:{user:{id:'u1'}},error:null}}},from:t=>new Q(t),rpc})};
 })();

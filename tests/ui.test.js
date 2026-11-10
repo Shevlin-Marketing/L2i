@@ -81,6 +81,16 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click('[data-pipeline="reports"]'); await p.waitForTimeout(300);
   ok(!!(await p.$('#outreachReport')) && /Ayden/.test(await p.textContent('#outreachReport')), 'outreach report lists rep activity');
   ok((await p.$$('meta[name="apple-mobile-web-app-capable"]')).length === 1 && !!(await p.$('link[rel="apple-touch-icon"]')), 'home-screen app tags and icon present');
+  // username sign-in and sign-up, no email step
+  await p.evaluate(() => renderLogin('signin'));
+  ok(await p.$eval('#authEmail', e => e.type) === 'text' && !/email/i.test(await p.textContent('#authForm')), 'login asks for a username, not an email');
+  await p.fill('#authEmail', '@Admin'); await p.fill('#authPassword', 'wrongpass1'); await p.click('#authForm button[type=submit]'); await p.waitForTimeout(200);
+  ok(/Wrong username or password/.test(await p.textContent('#authError')), 'wrong password gives a plain message');
+  await p.evaluate(() => renderLogin('signup'));
+  await p.fill('#authName', 'New Rep'); await p.fill('#authEmail', '@New.Rep'); await p.fill('#authPassword', 'longenough1'); await p.click('#authForm button[type=submit]');
+  await p.waitForSelector('[data-pipeline="reports"]');
+  const au = await p.evaluate(() => __auth);
+  ok(au.signups.length === 1 && au.signups[0].p_username === 'new.rep' && au.logins.at(-1) === 'new.rep@l2i.local', 'sign-up creates the account and signs straight in');
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs));
   await b.close();
   if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nALL PASSED');
