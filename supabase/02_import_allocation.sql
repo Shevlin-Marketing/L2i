@@ -2,9 +2,9 @@
 -- L2i CRM upgrade — screenshot import, de-duplication,
 -- daily 100-lead allocation, permission and opt-out tracking.
 --
--- Run once in Supabase → SQL Editor → New query → Run.
+-- Run after 01_base_schema.sql.
 -- Safe to re-run: every step checks before it changes anything.
--- Run this BEFORE deploying the new index.html.
+-- Run this BEFORE deploying the matching index.html.
 -- ============================================================
 
 -- ---------- 1. Normalisation helpers ----------
@@ -275,6 +275,20 @@ begin
   end if;
 end $$;
 
+-- ---------- 10. A do-not-contact block can't be lifted from the app ----------
+create or replace function public.l2i_guard_dnc()
+returns trigger language plpgsql as $$
+begin
+  if old.do_not_contact and not new.do_not_contact and auth.uid() is not null then
+    raise exception 'This person is on the do-not-contact list';
+  end if;
+  return new;
+end $$;
+drop trigger if exists l2i_leads_guard_dnc on public.leads;
+create trigger l2i_leads_guard_dnc before update of do_not_contact on public.leads
+  for each row execute function public.l2i_guard_dnc();
+
+grant select on public.do_not_contact to authenticated;
 grant execute on function public.l2i_norm_handle(text), public.l2i_norm_phone(text) to authenticated;
 grant execute on function public.import_leads(uuid, jsonb, boolean)              to authenticated;
 grant execute on function public.claim_daily_leads(uuid, uuid, int, int)        to authenticated;

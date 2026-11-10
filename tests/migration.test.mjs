@@ -1,47 +1,85 @@
+// Runs the real schema files against Postgres (PGlite) on an empty database, twice,
+// then checks sign-up, row-level security, import, de-duplication, allocation and opt-out.
 import { PGlite } from '@electric-sql/pglite';
 import fs from 'fs';
-const db = new PGlite();
-const q = async (s)=>{ try{ const r = await db.exec(s); return r.at(-1)?.rows; }catch(e){ console.log('ERR', e.message); throw e; } };
+const db = new PGlite(); const fails = [];
+const q = async s => (await db.exec(s)).at(-1)?.rows;
+const ok = (c, l) => { console.log((c ? 'PASS ' : 'FAIL ') + l); if (!c) fails.push(l); };
+const denied = async (s) => { try { const r = await q(s); return r; } catch (e) { return 'ERR:' + e.message; } };
+const U = n => `00000000-0000-0000-0000-00000000000${n}`; const P = '10000000-0000-0000-0000-000000000001';
+const as = async n => { await q(`reset role; set app.uid='${n ? U(n) : ''}'; ${n ? 'set role authenticated;' : ''}`); };
+
+// minimal stand-in for Supabase's auth schema
 await q(`
 create role authenticated; create role anon;
 create schema auth;
+create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
-create table public.profiles(id uuid primary key, full_name text, role text, approved boolean);
-create table public.projects(id uuid primary key default gen_random_uuid(), name text);
-create table public.leads(id uuid primary key default gen_random_uuid(), project_id uuid, name text, organisation text,
-  contact_handle text, contact_email text, source text, value_estimate numeric, score int, score_breakdown jsonb,
-  stage text not null default 'dm_opened' check (stage in ('dm_opened','replied','won','lost')),
-  call_date timestamptz, owner_id uuid not null, notes text, created_at timestamptz default now(), updated_at timestamptz);
-insert into profiles values ('00000000-0000-0000-0000-000000000001','Ayden','owner',true),('00000000-0000-0000-0000-000000000002','Rep A','setter',true),('00000000-0000-0000-0000-000000000003','Rep B','setter',true);
-insert into projects(id,name) values ('10000000-0000-0000-0000-000000000001','Built Different');
-insert into leads(project_id,name,contact_handle,owner_id) values ('10000000-0000-0000-0000-000000000001','Existing Person','https://www.instagram.com/Existing.Person?igsh=abc','00000000-0000-0000-0000-000000000001');
-`);
-const sql = fs.readFileSync('../supabase/2026-11-09_import_allocation.sql','utf8').replace("notify pgrst, 'reload schema';","");
-await q(sql);
-await q(sql); // re-run idempotent
+grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
+const files = ['01_base_schema.sql', '02_import_allocation.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
-console.log(await q(`select l2i_norm_handle('@Existing.Person') a, l2i_norm_handle('instagram.com/existing.person/') b, l2i_norm_phone('+44 7700 900123') c, l2i_norm_phone('07700900123') d, l2i_norm_phone('0044 7700 900123') e`));
-await q(`set app.uid='00000000-0000-0000-0000-000000000002'`);
-const rows = [{name:'Existing dup',contact_handle:'@existing.person'},{name:'Jane Founder',contact_handle:'@jane.founder',organisation:'Acme',mutual_name:'Tom'},
- {name:'Jane again',contact_handle:'jane.founder'},{name:'Phone Guy',contact_phone:'+44 7700 900123'},{name:'',contact_handle:''}];
-for(let i=0;i<150;i++) rows.push({name:'Bulk '+i, contact_handle:'bulk_'+i});
-console.log(JSON.stringify((await q(`select import_leads('10000000-0000-0000-0000-000000000001','${JSON.stringify(rows)}'::jsonb,true) r`))[0].r).slice(0,400));
-const res = (await q(`select import_leads('10000000-0000-0000-0000-000000000001','${JSON.stringify(rows)}'::jsonb) r`))[0].r;
-console.log('added', res.added, res.rows.slice(0,5));
-console.log('reimport added', (await q(`select import_leads('10000000-0000-0000-0000-000000000001','${JSON.stringify(rows.slice(0,5))}'::jsonb) r`))[0].r.added);
-console.log(await q(`select claim_daily_leads('10000000-0000-0000-0000-000000000001') r`));
-console.log(await q(`select claim_daily_leads('10000000-0000-0000-0000-000000000001') r`));
-console.log('first claimed has mutual:', await q(`select name, mutual_name from leads where owner_id='00000000-0000-0000-0000-000000000002' order by assigned_at, (mutual_name is null) limit 1`));
-await q(`set app.uid='00000000-0000-0000-0000-000000000003'`);
-console.log(await q(`select claim_daily_leads('10000000-0000-0000-0000-000000000001') r`));
-console.log('overlap:', await q(`select count(*) from leads where owner_id is not null group by id having count(*)>1`));
-try{ await q(`select claim_daily_leads('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002')`);}catch(e){}
+
+// sign-up
+await q(`insert into auth.users(id,email,raw_user_meta_data) values ('${U(1)}','ayden@example.com','{"full_name":"Ayden"}'),('${U(2)}','a@example.com','{"full_name":"Rep A"}'),('${U(3)}','b@example.com','{"full_name":"Rep B"}'),('${U(4)}','c@example.com','{}')`);
+const prof = await q(`select full_name, role, approved from profiles order by created_at, id`);
+ok(prof[0].role === 'owner' && prof[0].approved && prof[1].role === 'setter' && !prof[1].approved, 'first sign-up is the approved Owner; later ones wait as setters');
+
+// RLS
+await as(2);
+ok((await q(`select count(*)::int c from profiles`))[0].c === 1, 'pending user sees only their own profile');
+ok(String(await denied(`insert into projects(name) values ('x') returning id`)).startsWith('ERR'), 'pending user cannot create a project');
+ok(String(await denied(`update profiles set approved=true, role='owner' where id='${U(2)}' returning id`)) !== 'ERR' && (await q(`select approved from profiles where id='${U(2)}'`))[0].approved === false, 'pending user cannot approve themselves');
+await as(1);
+await q(`update profiles set approved=true where id in ('${U(2)}','${U(3)}'); update profiles set approved=true, role='coach' where id='${U(4)}'; insert into projects(id,name,slug) values ('${P}','Built Different','built-different')`);
+ok((await q(`select count(*)::int c from pipeline_stages where project_id='${P}'`))[0].c === 5, 'new project gets default production stages');
+await q(`insert into leads(project_id,name,contact_handle,owner_id,stage) values ('${P}','Existing Person','https://www.instagram.com/Existing.Person?igsh=abc','${U(1)}','dm_opened')`);
+await as(4);
+ok(String(await denied(`insert into leads(project_id,name) values ('${P}','Nope') returning id`)).startsWith('ERR'), 'coach cannot add leads');
+ok(String(await denied(`select import_leads('${P}','[{"name":"Nope","contact_handle":"@nope"}]'::jsonb)`)).startsWith('ERR'), 'coach cannot import');
+
+// import + de-duplication (as a setter)
+await as(2);
+const n = (await q(`select l2i_norm_handle('@Existing.Person') a, l2i_norm_handle('instagram.com/existing.person/') b, l2i_norm_phone('+44 7700 900123') c, l2i_norm_phone('0044 7700 900123') d`))[0];
+ok(n.a === 'existing.person' && n.b === 'existing.person' && n.c === '07700900123' && n.d === '07700900123', 'handles and phone numbers normalise to one key');
+const rows = [{ name: 'Existing dup', contact_handle: '@existing.person' }, { name: 'Jane Founder', contact_handle: '@jane.founder', organisation: 'Acme', mutual_name: 'Tom' },
+  { name: 'Jane again', contact_handle: 'jane.founder' }, { name: 'Phone Guy', contact_phone: '+44 7700 900123' }, { name: '', contact_handle: '' }];
+for (let i = 0; i < 150; i++) rows.push({ name: 'Bulk ' + i, contact_handle: 'bulk_' + i });
+const J = r => JSON.stringify(r).replace(/'/g, "''");
+const dry = (await q(`select import_leads('${P}','${J(rows)}'::jsonb,true) r`))[0].r;
+ok(dry.added === 0 && dry.rows.slice(0, 5).map(r => r.status).join() === 'duplicate,ok,duplicate,ok,invalid', 'dry run flags duplicates and incomplete rows without saving');
+ok((await q(`select import_leads('${P}','${J(rows)}'::jsonb) r`))[0].r.added === 152, 'import saves only new people');
+ok((await q(`select import_leads('${P}','${J(rows.slice(0, 5))}'::jsonb) r`))[0].r.added === 0, 're-importing adds nothing');
+ok(String(await denied(`update leads set contact_handle='@JANE.FOUNDER' where name='Bulk 1' returning id`)).includes('leads_handle_unique'), 'database refuses a duplicate handle on edit');
+
+// allocation
+const c1 = (await q(`select claim_daily_leads('${P}') r`))[0].r;
+ok(c1.claimed === 100 && c1.pool_left === 52, 'rep gets exactly 100');
+ok((await q(`select claim_daily_leads('${P}') r`))[0].r.claimed === 0, 'same rep cannot take more that day');
+ok(!!(await q(`select 1 from leads where owner_id='${U(2)}' and mutual_name is not null`)).length, 'mutual-connection lead is in the first batch');
+ok(String(await denied(`select claim_daily_leads('${P}','${U(3)}')`)).startsWith('ERR'), 'a setter cannot allocate to someone else');
+await as(3);
+ok((await q(`select claim_daily_leads('${P}') r`))[0].r.claimed === 52, 'second rep gets the rest, no overlap');
+
+// opt-out
 const pid = (await q(`select id from leads where name='Phone Guy'`))[0].id;
 await q(`select mark_do_not_contact('${pid}','asked to stop')`);
-await q(`delete from leads where id='${pid}'`);
-console.log('dnc reimport:', JSON.stringify((await q(`select import_leads('10000000-0000-0000-0000-000000000001','[{"name":"Phone Guy","contact_phone":"07700 900123"}]'::jsonb) r`))[0].r));
+ok(String(await denied(`update leads set do_not_contact=false where id='${pid}' returning id`)).startsWith('ERR'), 'do-not-contact cannot be lifted from the app');
+await as(1); await q(`delete from leads where id='${pid}'`); await as(3);
+ok((await q(`select import_leads('${P}','[{"name":"Phone Guy","contact_phone":"07700 900123"}]'::jsonb) r`))[0].r.rows[0].status === 'blocked', 'opted-out person cannot be re-imported, even after deletion');
+
 // recycle
-await q(`update leads set assigned_at = now() - interval '5 days' where owner_id='00000000-0000-0000-0000-000000000003'`);
-await q(`set app.uid='00000000-0000-0000-0000-000000000001'`);
-console.log(await q(`select claim_daily_leads('10000000-0000-0000-0000-000000000001') r`));
-try{ await q(`update leads set contact_handle='@JANE.FOUNDER' where name='Bulk 1'`);}catch(e){}
+await as(0); await q(`update leads set assigned_at = now() - interval '5 days' where owner_id='${U(3)}'`); await as(1);
+const c3 = (await q(`select claim_daily_leads('${P}') r`))[0].r;
+ok(c3.recycled > 0 && c3.claimed > 0, 'untouched leads return to the pool and are re-allocated');
+
+// stage triggers
+const lid = (await q(`select id from leads where owner_id='${U(1)}' limit 1`))[0].id;
+await q(`update leads set stage='call_booked', call_date=now() where id='${lid}'; update leads set stage='won', value_estimate=30000 where id='${lid}'`);
+ok((await q(`select count(*)::int c from notifications`))[0].c === 2, 'booking and win appear in the report');
+const pr = (await q(`select slate_number, production_stage, title from productions`))[0];
+ok(pr && pr.slate_number === 1 && pr.production_stage === 'pre_production', 'winning a lead creates production slate 1');
+await as(2);
+ok(String(await denied(`insert into notifications(project_id,message) values ('${P}','fake') returning id`)).startsWith('ERR'), 'report entries cannot be faked from the app');
+
+if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nDATABASE CHECKS PASSED');

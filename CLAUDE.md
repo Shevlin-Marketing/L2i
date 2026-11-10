@@ -5,8 +5,8 @@ Single-file CRM for L2i Productions (Built Different docuseries outreach). Owner
 ## Layout
 
 - `index.html` — the whole app: CSS, HTML and JS in one file, no build step. Served by GitHub Pages from `main` (see `CNAME`), so **a push to `main` is a live deploy**.
-- `supabase/*.sql` — database changes, run by hand in Supabase → SQL Editor. Every file must be safe to re-run.
-- `tests/` — `npm install && npm test` runs the migration against PGlite, generates mock screenshots, then drives the app at iPhone 14 size against `mock-supabase.js`. Needs Playwright + Chromium.
+- `supabase/01_base_schema.sql` then `02_import_allocation.sql` — the whole database, in run order: tables, sign-up trigger (first user becomes the approved Owner), row-level security by role, stage triggers, then import/de-duplication/allocation/opt-out. Every file must be safe to re-run. New changes go in a new numbered file.
+- `tests/` — `npm install && npm test` runs both schema files twice on an empty Postgres (PGlite) and checks sign-up, row-level security and the RPCs as real roles, generates mock screenshots, then drives the app at iPhone 14 size against `mock-supabase.js`. Needs Playwright + Chromium.
 
 Backend is Supabase (auth, Postgres, RLS). The key in `index.html` is the publishable key; nothing in this repo has service-level access, so the live data can't be read or migrated from here.
 
