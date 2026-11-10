@@ -49,6 +49,17 @@ const pages = {
    <div style="flex:1;display:flex;justify-content:space-around">${stat('412','posts')}${stat('28.1K','followers')}${stat('903','following')}</div></div>
   <div style="padding:4px 16px;font-size:14px;line-height:1.4"><div style="font-weight:600">Sofia Marin | Brand Coach</div><div>Founder of Marin Studio</div><div>07700 900789</div><div>Bookings open for 2027</div></div>
   <div style="display:flex;gap:8px;padding:12px 16px">${btn('Follow','#0af')}${btn('Message','#eee')}</div>`),
+ ig_verified_dark: base('#000','#fff','#aaa',`
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;font-weight:700;font-size:20px"><span>&lt;</span><span>nadia_k.builds</span>
+   <span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#0af;color:#fff;font-size:12px;align-items:center;justify-content:center">&#10003;</span>
+   <span style="margin-left:auto;font-size:20px">&#9825;&nbsp;&nbsp;&bull;&bull;&bull;</span></div>
+  <div style="display:flex;gap:18px;padding:10px 16px;align-items:center">${avatar('#a86')}
+   <div style="flex:1"><div style="font-weight:600;font-size:15px;margin-bottom:8px">Nadia Karim</div>
+   <div style="display:flex;justify-content:space-between">${stat('96','posts')}${stat('54.2K','followers')}${stat('411','following')}</div></div></div>
+  <div style="padding:4px 16px;font-size:14px;line-height:1.4"><div style="color:#aaa">Entrepreneur</div><div>Building homes with @karim.homes</div><div>Essex</div>
+  <div style="margin-top:6px">Followed by tom.reeves and 5 others</div></div>
+  <div style="display:flex;gap:8px;padding:12px 16px">${btn('Follow','#0af')}${btn('Message','#333')}</div>`),
+ dm_nadia: dm('#000','#fff','Nadia Karim','nadia_k.builds',[['me','Hi Nadia, Tom Reeves suggested I get in touch about Built Different.'],['them','Hi, what does it involve and how much is it?'],['me','Happy to explain on a quick call, are you free Thursday at 2pm?'],['them','Yes that works, call me on 07700 900222']]),
  ig_noname_light: base('#fff','#111','#666',`
   <div style="padding:8px 16px;font-weight:700;font-size:20px">hale_developments</div>
   <div style="display:flex;gap:18px;padding:10px 16px;align-items:center">${avatar('#789')}

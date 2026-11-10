@@ -63,10 +63,11 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   ok(await p.evaluate(() => __db.leads.length) === 3011, 'the 10 new people saved');
   ok(await p.evaluate(() => (__db.lead_files || []).length === 8 && Object.keys(__store).length === 8 && __db.lead_files.every(f => !!f.hash)), 'their 8 screenshots uploaded and recorded with a fingerprint');
   ok(await p.evaluate(() => { const g = h => __db.leads.find(l => l.contact_handle === h); return g('@marcus_hale.co').stage === 'call_booked' && g('@marcus_hale.co').owner_id === 'u1' && !!g('@marcus_hale.co').call_date && g('@hale_developments').stage === 'dm_opened' && g('@sofia.marin').stage === 'replied' && g('@amelia.brooks').stage === 'new' && !g('@amelia.brooks').owner_id; }), 'worked leads are saved at their stage and owned by the importer; untouched ones go to the pool');
-  ok(/Messages \(screenshot/.test(await p.evaluate(() => __db.leads.find(l => l.contact_handle === '@sofia.marin').notes)), 'message text saved into the lead notes');
+  { const sn = await p.evaluate(() => __db.leads.find(l => l.contact_handle === '@sofia.marin').notes);
+    ok(/Conversation \(from screenshots/.test(sn) && /They replied/.test(sn) && /Next:/.test(sn) && !/Us: |Them: /.test(sn), 'the notes say how the conversation went, not a transcript'); }
   await p.click('[data-attach-existing="0"]');
   await p.waitForFunction(() => !IMPORT, null, { timeout: 30000 });
-  ok(await p.evaluate(() => __db.lead_files.filter(f => f.lead_id === 'l0').length === 2 && /Messages/.test(__db.leads.find(l => l.id === 'l0').notes)), 'screenshots for someone already in the CRM are added to their existing lead');
+  ok(await p.evaluate(() => __db.lead_files.filter(f => f.lead_id === 'l0').length === 2 && /Conversation \(from screenshots/.test(__db.leads.find(l => l.id === 'l0').notes)), 'screenshots for someone already in the CRM are added to their existing lead');
   ok(await p.evaluate(() => __db.leads.find(l => l.id === 'l0').stage) === 'replied', 'and that lead moves forward to the stage its new messages show');
   // the same image can't be stored on a lead twice
   await p.evaluate(() => openLeadModal('l0')); await p.waitForSelector('#leadShotKind');
@@ -78,6 +79,31 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.evaluate(() => openLeadModal('l0')); await p.waitForSelector('.shot img');
   ok(await p.$$eval('.shot', e => e.length) === 2 && !!(await p.$('#leadShotFiles')), 'lead shows its screenshots and lets you add more');
   await p.evaluate(() => closeModal());
+
+  // handle next to a verified tick and icons; an @mention in the bio must not be taken as the handle; notes summarise the chat
+  await p.click('#importBtn');
+  await p.setInputFiles('#impFiles', ['ig_noname_light', 'ig_old_light', 'ig_verified_dark', 'dm_nadia'].map(k => path.join(__dirname, 'shots', k + '.png')));
+  await p.waitForFunction(() => /ready|already/.test(document.getElementById('impStatus')?.textContent || '') && !IMPORT.busy, null, { timeout: 240000 });
+  const hr = await p.evaluate(() => IMPORT.rows.map(r => ({ n: r.name, h: r.contact_handle, o: r.organisation, chk: r._handleCheck, st: r.stage, notes: importPayload([r])[0].notes })));
+  const nadia = hr.find(r => r.n === 'Nadia Karim') || {};
+  ok(nadia.h === '@nadia_k.builds' && nadia.o === '@karim.homes' && nadia.chk === false, 'handle read correctly beside a verified tick and icons; the bio @mention goes to business, not handle (got ' + nadia.h + ')');
+  ok(/Call agreed after some questions for Thursday/.test(nadia.notes) && /Asked about what it involves and the cost/.test(nadia.notes) && /Gave their number: 07700 900222/.test(nadia.notes) && /Next: confirm the call/.test(nadia.notes), 'a booking with questions is written up as that');
+  ok(hr.length === 3 && hr.some(r => r.h === '@hale_developments') && hr.some(r => r.h === '@marcus_hale.co'), 'two profiles with different handles are never merged because a name resembles a handle');
+  ok(await p.evaluate(() => {
+    const T = (...a) => a.map(([side, text]) => ({ side, text }));
+    const s1 = summariseConversation(T(['me', 'Hi Sam, would you be open to me sending more information?']));
+    const s2 = summariseConversation(T(['me', 'Hi Sam, would you be open to more information?'], ['them', 'Sure, send it over. What does it involve?']));
+    const s3 = summariseConversation(T(['me', 'Hi Sam'], ['them', 'Not interested thanks']));
+    const s4 = summariseConversation(T(['me', 'Hi Sam'], ['them', 'Bit busy right now, can you get back to me next month']));
+    const s5 = summariseConversation(T(['me', 'Hi Sam, are you free for a quick call tomorrow at 10am?'], ['them', 'Yes perfect, speak then']));
+    return /No reply yet/.test(s1) && /one follow-up/.test(s1)
+      && /want more information/.test(s2) && /Asked about what it involves/.test(s2) && /reply is due, with the information/.test(s2)
+      && /reads as a no/.test(s3) && /mark as declined/.test(s3)
+      && /asked for more time/.test(s4)
+      && /^Straightforward booking/.test(s5) && !/Asked about/.test(s5);
+  }), 'no reply, wants information, a no, needs time and a straight booking each get their own write-up');
+  ok(await p.evaluate(() => barHandle('< nadia_k.builds ® Q eee') === 'nadia_k.builds' && barHandle('jane.founder @ v') === 'jane.founder' && barHandle('< theo & eee') === null && barHandle('marcus_hale.co') === 'marcus_hale.co' && barHandle('Jane Okafor') === null), 'handle picked out of a noisy top bar; display names are not handles');
+  await p.evaluate(() => { IMPORT = null; closeModal(); });
 
   // paste import
   await p.click('#importBtn'); await p.click('#impPasteToggle');
