@@ -23,12 +23,12 @@ create table storage.objects(id uuid primary key default gen_random_uuid(), buck
 alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated, anon; grant select, insert, delete on storage.objects to authenticated, anon;
 create schema extensions;
-create function extensions.gen_salt(text) returns text language sql as $$ select 'salt' $$;
-create function extensions.crypt(text, text) returns text language sql as $$ select md5($1 || $2) $$;
+create function extensions.gen_salt(text) returns text language sql as $$ select 'H:' || substr(md5(random()::text), 1, 8) $$;
+create function extensions.crypt(text, text) returns text language sql as $$ select 'H:' || split_part($2, ':', 2) || ':' || md5($1 || split_part($2, ':', 2)) $$;
 grant usage on schema extensions to anon, authenticated;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('app.uid', true),'')::uuid $$;
 grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql', '06_screenshot_hash.sql', '07_import_stage.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
+const files = ['01_base_schema.sql', '02_import_allocation.sql', '03_hardening.sql', '04_username_signup.sql', '05_lead_screenshots.sql', '06_screenshot_hash.sql', '07_import_stage.sql', '08_calls_and_passwords.sql'].map(f => fs.readFileSync('../supabase/' + f, 'utf8').replace("notify pgrst, 'reload schema';", ''));
 for (const f of [...files, ...files]) await q(f);
 console.log('migration ok x2');
 
@@ -132,4 +132,25 @@ ok(String(await denied(`select l2i_sign_up('a b','longenough1','X')`)).startsWit
 await as(0);
 const nu = (await q(`select p.role, p.approved, p.full_name, u.email, u.email_confirmed_at is not null conf, u.encrypted_password <> 'longenough1' hashed, (select count(*)::int from auth.identities i where i.user_id=u.id) ids from auth.users u join profiles p on p.id=u.id where u.email='new.rep@l2i.local'`))[0];
 ok(nu && nu.role === 'setter' && !nu.approved && nu.conf && nu.hashed && nu.ids === 1 && nu.full_name === 'New Rep', 'new account is confirmed, hashed, and waits for approval as a setter');
+// call outcomes and passwords
+await as(0);
+ok(String(await denied(`update leads set call_outcome='maybe' where id=(select id from leads limit 1) returning id`)).startsWith('ERR'), 'call outcome only takes the five set answers');
+const nr = (await q(`select id from auth.users where email='new.rep@l2i.local'`))[0].id;
+await q(`update profiles set approved=true where id='${nr}'`);
+await q(`reset role; set app.uid='${nr}'; set role authenticated;`);
+ok(String(await denied(`select l2i_change_password('wrongpass1','brandnew99')`)).includes('current password is wrong'), 'changing your password needs the right current one');
+await q(`select l2i_change_password('longenough1','brandnew99')`);
+await as(0);
+const pw = (await q(`select encrypted_password = extensions.crypt('brandnew99', encrypted_password) ok, encrypted_password <> 'brandnew99' hashed from auth.users where id='${nr}'`))[0];
+ok(pw.ok && pw.hashed, 'your new password is saved, hashed');
+await q(`reset role; set app.uid='${nr}'; set role authenticated;`);
+ok(String(await denied(`select l2i_admin_set_password('${U(1)}','takeover123')`)).includes('Only the Owner'), 'only the Owner can reset someone else\'s password');
+await as(1);
+await q(`select l2i_admin_set_password('${nr}','resetbyowner1')`);
+await as(0);
+ok((await q(`select encrypted_password = extensions.crypt('resetbyowner1', encrypted_password) ok from auth.users where id='${nr}'`))[0].ok, 'the Owner can reset a rep\'s password');
+await q(`reset role; set app.uid=''; set role anon;`);
+ok(String(await denied(`select l2i_change_password('a','bbbbbbbb')`)).includes('permission denied'), 'signed-out visitors cannot call the password functions');
+await as(0);
+
 if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nDATABASE CHECKS PASSED');

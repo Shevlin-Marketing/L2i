@@ -1,7 +1,7 @@
 (function(){
 const now=()=>new Date().toISOString();
 const db = window.__db = {
- profiles:[{id:'u1',full_name:'Ayden Shevlin',role:'owner',approved:true},{id:'u2',full_name:'Rep A',role:'setter',approved:true}],
+ profiles:[{id:'u1',full_name:'Ayden Shevlin',role:'owner',approved:true,email:'admin@l2i.local'},{id:'u2',full_name:'Rep A',role:'setter',approved:true,email:'rep.a@l2i.local'}],
  projects:[{id:'p1',name:'Built Different',archived:false,created_at:now()}],
  leads:[{id:'l0',project_id:'p1',name:'Existing Person',contact_handle:'@jane.founder',contact_platform:'instagram',stage:'dm_opened',owner_id:'u1',score:50,score_breakdown:{real_business:true,mutual_connection:true},permission_status:'asked',created_at:now()}],
  productions:[],activity_log:[],pipeline_stages:[],notifications:[],rep_progress:[],do_not_contact:[]};
@@ -26,9 +26,11 @@ const rpc=async(name,a)=>{
    if(st==='ok'){ if(h)seen.add(h); if(!a.p_dry_run){nid='n'+(seq++);const stg=['dm_opened','replied','call_booked'].includes(r.stage)?(r.stage==='call_booked'&&!r.call_date?'replied':r.stage):'new';db.leads.push({id:nid,project_id:a.p_project,...r,stage:stg,owner_id:stg==='new'?null:'u1',permission_status:stg==='call_booked'?'granted':(stg==='new'?'not_asked':(r.permission_status||'asked')),call_date:stg==='call_booked'?r.call_date:null,created_at:now()});added++;}}
    out.push({index:i,status:st,detail:d,id:nid,existing_id:ex});}); return {data:{added,rows:out},error:null}; }
  if(name==='claim_daily_leads'){ const pool=db.leads.filter(l=>l.stage==='new'&&!l.owner_id).sort((x,y)=>(!x.mutual_name)-(!y.mutual_name)); const take=pool.slice(0,a.p_cap); take.forEach(l=>{l.owner_id=a.p_user;l.assigned_at=now()}); return {data:{claimed:take.length,today:take.length,cap:a.p_cap,pool_left:pool.length-take.length,recycled:0},error:null}; }
+ if(name==='l2i_change_password'){ (window.__pw=window.__pw||[]).push(['self',a.p_new]); return a.p_current==='wrongpass1'?{data:null,error:{message:'Your current password is wrong'}}:{data:null,error:null}; }
+ if(name==='l2i_admin_set_password'){ (window.__pw=window.__pw||[]).push([a.p_user,a.p_password]); return {data:null,error:null}; }
  if(name==='l2i_sign_up'){ window.__auth.signups.push(a); return {data:{username:a.p_username},error:null}; }
  if(name==='mark_do_not_contact'){ const l=db.leads.find(x=>x.id===a.p_lead); l.do_not_contact=true; l.opted_out_at=now(); return {data:null,error:null}; }
 };
 window.__auth={signups:[],logins:[]};
-window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{user:{id:'u1'}}}}),signOut:async()=>({}),signInWithPassword:async(c)=>{window.__auth.logins.push(c.email);return c.password==='wrongpass1'?{data:{},error:{message:'Invalid login credentials'}}:{data:{user:{id:'u1'}},error:null}}},from:t=>new Q(t),rpc,storage:{from:b=>({upload:async(path,blob)=>{(window.__store=window.__store||{})[path]=blob.size;return {data:{path},error:null}},createSignedUrls:async(paths)=>({data:paths.map(p=>({path:p,signedUrl:'https://l2i.test/shot/'+p})),error:null}),remove:async(paths)=>{paths.forEach(p=>delete (window.__store||{})[p]);return {data:[],error:null}}})}})};
+window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{user:{id:'u1',email:'admin@l2i.local'}}}}),signOut:async()=>({}),signInWithPassword:async(c)=>{window.__auth.logins.push(c.email);return c.password==='wrongpass1'?{data:{},error:{message:'Invalid login credentials'}}:{data:{user:{id:'u1'}},error:null}}},from:t=>new Q(t),rpc,storage:{from:b=>({upload:async(path,blob)=>{(window.__store=window.__store||{})[path]=blob.size;return {data:{path},error:null}},createSignedUrls:async(paths)=>({data:paths.map(p=>({path:p,signedUrl:'https://l2i.test/shot/'+p})),error:null}),remove:async(paths)=>{paths.forEach(p=>delete (window.__store||{})[p]);return {data:[],error:null}}})}})};
 })();
