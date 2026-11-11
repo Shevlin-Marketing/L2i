@@ -21,7 +21,7 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click('#importBtn');
   await p.setInputFiles('#impFiles', ['ig_new_dark', 'dm_jane', 'ig_old_light', 'dm_marcus', 'ig_list_light', 'li_light', 'dm_sofia', 'ig_tricky_light', 'ig_noname_light', 'dm_hale', 'ig_old_light', 'dm_jane', 'ig_tricky_scrolled', 'ig_list_light'].map(k => path.join(__dirname, 'shots', k + '.png')));
   await p.waitForFunction(() => /ready/.test(document.getElementById('impStatus')?.textContent || ''), null, { timeout: 240000 });
-  const rows = await p.evaluate(() => IMPORT.rows.map(r => ({ n: r.name, h: r.contact_handle, p: r.contact_platform, o: r.organisation, m: r.mutual_name, ph: r.contact_phone, em: r.contact_email, st: r.stage, perm: r.permission_status, call: r.call_date, sig: (r._signals || []).join('; '), s: r._status, chk: r._nameCheck, notes: r.notes, shots: r._shots.map(x => x.kind).join('+'), msg: r._shots.map(x => x.text || '').join(' ') })));
+  const rows = await p.evaluate(() => IMPORT.rows.map(r => ({ n: r.name, h: r.contact_handle, p: r.contact_platform, o: r.organisation, m: r.mutual_name, callChk: r._callCheck, ph: r.contact_phone, em: r.contact_email, st: r.stage, perm: r.permission_status, call: r.call_date, sig: (r._signals || []).join('; '), s: r._status, chk: r._nameCheck, notes: r.notes, shots: r._shots.map(x => x.kind).join('+'), msg: r._shots.map(x => x.text || '').join(' ') })));
   const by = h => rows.find(r => r.h === h) || {};
   ok(rows.length === 11, 'fourteen screenshots (profiles, message threads, repeats) still become 11 leads (got ' + rows.length + ')');
   ok(await p.evaluate(() => IMPORT.repeats) === 3 && /3 repeated screenshots skipped/.test(await p.textContent('#impStatus')), 'the same screenshot uploaded again is recognised and skipped');
@@ -29,14 +29,34 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   const jane = by('@jane.founder'), sofia = by('@sofia.marin'), hale = by('@hale_developments'), marcus = by('@marcus_hale.co');
   // profile + its message thread = one lead, at the stage the conversation has reached
   ok(marcus.shots === 'profile+messages' && hale.shots === 'profile+messages', 'a profile and its DM screenshot become one lead, even when the DM shows only a name or only a handle');
-  const thu = await p.evaluate(() => { const d = new Date(); let add = (4 - d.getDay() + 7) % 7; if (add === 0) add = 7; d.setDate(d.getDate() + add); d.setHours(15, 0, 0, 0); return localDateTimeStr(d); });
-  ok(marcus.st === 'call_booked' && marcus.call === thu && marcus.perm === 'granted', 'a booked call is read from the messages with its day and time (' + marcus.st + ' ' + marcus.call + ')');
+  const thu = await p.evaluate(() => { const d = new Date(); d.setMonth(10, 5); if (d > new Date()) d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + ((4 - d.getDay() + 7) % 7 || 7)); d.setHours(15, 0, 0, 0); return localDateTimeStr(d); });
+  ok(marcus.st === 'call_booked' && marcus.call === thu && marcus.perm === 'granted' && marcus.callChk === false, '"Thursday at 3pm" sent on 5 Nov is read as the Thursday after that day, from the chat\'s own date, not from today (' + marcus.st + ' ' + marcus.call + ')');
   ok(marcus.ph === '07700 900321' && /gave their number/.test(marcus.sig), 'the number they sent is saved as their phone');
   ok(hale.st === 'dm_opened' && hale.ph === '07700 900456', 'our message with no reply yet → DM sent; our own text is not mistaken for theirs');
   ok(sofia.st === 'replied' && sofia.perm === 'granted' && jane.st === 'replied', 'a reply moves the lead to Replied, and a yes records permission');
   ok(by('@amelia.brooks').st === 'new' && rows.find(r => r.n === 'Daniel Brooks').st === 'new', 'leads with no messages stay new');
-  ok(await p.evaluate(() => { const w = (t) => { const r = parseWhen(t, new Date(2026, 10, 10, 14, 0)); return r ? localDateTimeStr(r.date) + (r.exact ? '' : '?') : null; };
-     return w('tomorrow at 10') === '2026-11-11T10:00' && w('Friday 2:30pm') === '2026-11-13T14:30' && w('call at 4') === '2026-11-10T16:00?' && w('12th Nov at 11am') === '2026-11-12T11:00' && w('monday') === '2026-11-16T09:00?' && w('no time here') === null; }), 'call days and times are worked out correctly');
+  { const got = await p.evaluate(() => { const ref = new Date(2026, 10, 10, 14, 0);   // Tue 10 Nov 2026, 14:00
+      const w = (t) => { const r = parseWhen(t, ref); return r ? localDateTimeStr(r.date) + (r.hasDay ? '' : ' noday') + (r.hasTime ? '' : ' notime') : null; };
+      const st = (t) => { const d = parseStamp(t, ref); return d ? localDateTimeStr(d) : null; };
+      return [w('tomorrow at 10'), w('Friday 2:30pm'), w('call at 4'), w('12th Nov at 11am'), w('monday'), w('no time here'), w('Thursday the 19th at 3pm'), w('call me on 07700 900321'), w('speak at 14:30'), w('tues'), w('can we do the 2nd at 11am'), w('Nov 20 at 9am'), w('free in 2 days'),
+              st('Today 10:15'), st('Yesterday 21:04'), st('Mon 09:10'), st('5 Nov 14:05'), st('Fri, 6 Nov at 2:05 PM'), st('14:32'), st('Hey how are you'), st('Seen')]; });
+    const want = ['2026-11-11T10:00', '2026-11-13T14:30', '2026-11-10T16:00 noday', '2026-11-12T11:00', '2026-11-16T12:00 notime', null, '2026-11-19T15:00', null, '2026-11-10T14:30 noday', '2026-11-17T12:00 notime', '2026-12-02T11:00', '2026-11-20T09:00', null,
+                  '2026-11-10T10:15', '2026-11-09T21:04', '2026-11-09T09:10', '2026-11-05T14:05', '2026-11-06T14:05', '2026-11-10T14:32', null, null];
+    const bad = want.map((x, i) => x === got[i] ? null : i + ': ' + got[i] + ' (want ' + x + ')').filter(Boolean);
+    ok(!bad.length, 'call days and times, and chat date markers, are read correctly ' + bad.join('; ')); }
+  ok(await p.evaluate(() => { const T = (...x) => x.map(([side, text, at]) => ({ side, text, at: at || null }));
+     const thu5 = new Date(2026, 10, 5, 14, 5);
+     const a = inferConversation(T(['me', 'Are you free Tuesday at 2pm?', thu5], ['them', 'Can we do Wednesday at 4pm instead?', thu5], ['me', 'Perfect, Wednesday 4pm it is', thu5]));
+     const b = inferConversation(T(['me', 'Free tomorrow at 11am?', thu5], ['them', 'Yes that works', thu5]));
+     const c = inferConversation(T(['me', 'Free tomorrow at 11am?'], ['them', 'Yes that works']));
+     const d = inferConversation(T(['me', 'Can I call you at 3?'], ['them', 'Sure']));
+     const e = inferConversation(T(['me', 'Free for a call Thursday?', thu5], ['them', 'Yes', thu5]));
+     return a.stage === 'call_booked' && localDateTimeStr(a.callDate) === '2026-11-11T16:00' && !a.callCheck
+       && localDateTimeStr(b.callDate) === '2026-11-06T11:00' && !b.callCheck
+       && c.stage === 'call_booked' && c.callCheck
+       && d.stage === 'replied' && !d.callDate
+       && e.stage === 'call_booked' && e.callCheck && localDateStr(e.callDate) === '2026-11-12'; }),
+     'the last time agreed is used, read from the date of its message; anything worked out from today, or missing a day or time, must be confirmed; a time with no day and no message date is not booked');
   ok(await p.evaluate(() => { const T = (...x) => x.map(([side, text]) => ({ side, text }));
      const a = inferConversation(T(['me', 'Hi, can I send more info?'], ['them', 'Not interested thanks']));
      const b = inferConversation(T(['me', 'Free for a call Friday at 2pm?'], ['them', 'Who is this?']));
@@ -45,7 +65,8 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   ok(jane.n === 'Jane Okafor' && jane.s === 'duplicate' && jane.shots === 'profile+messages', 'profile and message thread grouped on one lead; existing lead flagged');
   ok(/following up/i.test(jane.msg) && /send me more/i.test(jane.msg), 'both sides of a dark-mode message thread are read');
   ok(jane.o === 'okafor.studio' && /Role: Founder/.test(jane.notes) && /Website: okafor\.studio/.test(jane.notes), 'role, business and website go to their own fields');
-  ok(by('@marcus_hale.co').o === 'Hale Property Group' && /priya/.test(by('@marcus_hale.co').m) && /Location: Hertfordshire/.test(by('@marcus_hale.co').notes), 'business, mutual and location read from bio');
+  ok(by('@marcus_hale.co').o === 'Hale Property Group' && !by('@marcus_hale.co').m && /Location: Hertfordshire/.test(by('@marcus_hale.co').notes), 'business and location read from bio; no mutual connection is recorded');
+  ok(!(await p.$('[data-f="mutual_name"]')), 'the import card has no mutual connection field');
   ok(rows.some(r => r.p === 'linkedin' && r.n === 'Daniel Brooks' && r.o === 'Brooks Logistics Ltd'), 'LinkedIn profile read');
   ok(sofia.n === 'Sofia Marin' && sofia.em === 'hello@sofiamarin.co.uk' && sofia.shots === 'messages+profile+profile', 'name split from its tagline; email found; messages uploaded before the profile still grouped');
   ok(sofia.ph === '07700 900789' && sofia.o === 'Brand Coach' && /Bookings open/.test(sofia.notes) && (sofia.notes.match(/Location: London/g) || []).length === 1, 'a second screenshot of the same profile adds its new details to the same lead, without repeats');
@@ -116,20 +137,20 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   // daily allocation + one-tap outcomes
   await p.click('#todayBtn'); await p.click('#dailyClaim'); await p.waitForTimeout(600);
   ok(await p.evaluate(() => todayCount()) === 100, 'claims exactly 100');
-  ok(!!(await p.$('.list-row .chip-mutual')), 'mutual-connection leads handed out first');
-  const pick = scored => p.evaluate(s => state.leads.find(l => l.owner_id === 'u1' && l.stage === 'new' && (l.score != null) === s).id, scored);
+  ok(!(await p.$('.score-chip')) && !(await p.$('.chip-mutual')) && !/score/i.test(await p.textContent('#main')), 'no lead scores or mutual connections anywhere on the pipeline');
+  const pick = () => p.evaluate(() => state.leads.find(l => l.owner_id === 'u1' && l.stage === 'new' && l.permission_status === 'not_asked').id);
   const get = id => p.evaluate(i => { const l = state.leads.find(x => x.id === i); return [l.stage, l.permission_status, !!l.do_not_contact, !!l.next_action_at]; }, id);
-  const a = await pick(true);
+  const a = await pick();
   await p.click(`[data-qa="sent"][data-id="${a}"]`); await p.waitForTimeout(200);
   ok((await get(a)).join() === 'dm_opened,asked,false,true', '"Message sent" logs the ask and sets a follow-up');
   await p.click(`[data-qa="yes"][data-id="${a}"]`); await p.waitForTimeout(200);
   ok((await get(a)).slice(0, 2).join() === 'replied,granted', '"Said yes" records permission');
-  const c = await pick(true);
+  const c = await pick();
   await p.click(`[data-qa="sent"][data-id="${c}"]`); await p.waitForTimeout(200);
   await p.click(`[data-qa="no"][data-id="${c}"]`); await p.waitForTimeout(300);
   ok((await get(c)).slice(0, 3).join() === 'lost,declined,true', '"Said no" blocks further contact');
   // copy & open, undo, follow-up cycle
-  const d = await pick(true);
+  const d = await pick();
   await p.click(`[data-qa-copy="opener"][data-id="${d}"]`); await p.waitForTimeout(300);
   await p.bringToFront();
   ok(/Built Different/.test(await p.evaluate(() => navigator.clipboard.readText())) && /paid commercial arrangement/.test(await p.evaluate(() => navigator.clipboard.readText())), '"Copy message & open" copies the permission message');
@@ -145,11 +166,14 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click(`[data-qa="noreply"][data-id="${d}"]`); await p.waitForTimeout(200);
   ok((await get(d))[0] === 'lost', '"No reply — close" closes the lead');
   ok(/sent today/.test(await p.textContent('#repStrip')), 'rep progress strip shows');
-  const u = await pick(false);
+  const u = await pick();
+  ok(!!(await p.$(`[data-qa-copy="opener"][data-id="${u}"]`)), 'every lead offers the message straight away, with no scoring step');
   await p.click(`[data-qa="sent"][data-id="${u}"]`); await p.waitForTimeout(300);
-  ok(!!(await p.$('#f_next')), 'unscored lead must be scored before a message is logged');
+  ok((await get(u))[0] === 'dm_opened', '"Message sent" works without scoring the lead');
   // permission gate
-  await p.check('[data-score="real_business"]'); await p.selectOption('#f_stage', 'call_booked'); await p.fill('#f_calldate', '2026-12-01T10:00');
+  await p.evaluate(i => openLeadModal(i), u); await p.waitForSelector('#f_stage');
+  ok(!(await p.$('[data-score]')) && !(await p.$('#f_mutual')) && !!(await p.$('#pitchText')), 'lead has no score checklist or mutual field, and the message is shown straight away');
+  await p.selectOption('#f_stage', 'call_booked'); await p.fill('#f_calldate', '2026-12-01T10:00');
   await p.click('#mSave'); await p.waitForTimeout(300);
   ok(/permission/i.test(await p.textContent('#toast')), 'call cannot be booked without recorded permission');
   await p.evaluate(() => closeModal());
