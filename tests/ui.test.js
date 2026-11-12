@@ -236,17 +236,25 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click('[data-pipeline="reports"]'); await p.waitForTimeout(250);
   ok(/Calls logged/.test(await p.textContent('#callReport')), 'Reports show call outcomes');
   // passwords
-  await p.click('#passwordBtn'); await p.fill('#pwCur', 'wrongpass1'); await p.fill('#pwNew', 'brandnew99'); await p.fill('#pwNew2', 'brandnew99'); await p.click('#pwSave'); await p.waitForTimeout(200);
+  await p.click('#appMenu summary'); await p.click('#passwordBtn'); await p.fill('#pwCur', 'wrongpass1'); await p.fill('#pwNew', 'brandnew99'); await p.fill('#pwNew2', 'brandnew99'); await p.click('#pwSave'); await p.waitForTimeout(200);
   ok(/current password is wrong/.test(await p.textContent('#pwErr')), 'a wrong current password is refused');
   await p.fill('#pwCur', 'oldpass123'); await p.fill('#pwNew2', 'different1'); await p.click('#pwSave'); await p.waitForTimeout(100);
   ok(/don't match/.test(await p.textContent('#pwErr')), 'mismatched new passwords are caught');
   await p.fill('#pwNew2', 'brandnew99'); await p.click('#pwSave'); await p.waitForTimeout(200);
   ok(/Password changed/.test(await p.textContent('#toast')), 'you can change your own password');
-  await p.click('#teamBtn'); await p.waitForSelector('[data-reset-pw="u2"]');
+  await p.click('#appMenu summary'); await p.click('#teamBtn'); await p.waitForSelector('[data-reset-pw="u2"]');
   ok(/@rep\.a/.test(await p.textContent('.modal')) && !(await p.$('[data-reset-pw="u1"]')), 'Team shows usernames, with a reset for others but not yourself');
   await p.click('[data-reset-pw="u2"]'); await p.fill('#rpNew', 'tempPass123'); await p.click('#rpSave'); await p.waitForTimeout(200);
   ok(await p.evaluate(() => JSON.stringify(__pw.at(-1))) === '["u2","tempPass123"]', 'the Owner can reset a rep\'s password');
+  ok(await p.evaluate(() => document.querySelectorAll('.overlay').length) === 1, 'opening one window from another never stacks overlays');
   await p.evaluate(() => closeModal());
+  await p.evaluate(() => closeModal());
+  await p.click('#appMenu summary');
+  ok(await p.evaluate(() => document.getElementById('appMenu').open), 'the menu opens');
+  await p.click('[data-pipeline="acquisition"]').catch(() => {}); await p.mouse.click(5, 400);
+  ok(await p.evaluate(() => !document.getElementById('appMenu') || !document.getElementById('appMenu').open), 'tapping outside closes the menu');
+  ok(await p.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Archivo') && !document.body.innerHTML.includes('&rarr;')), 'new typeface applied; no arrows on buttons');
+  ok(await p.evaluate(() => { renderMain(); const g = document.querySelector('.list-group[data-stage]'); return !!g && getComputedStyle(g).getPropertyValue('--stage').trim().length > 0; }), 'each stage group carries its colour');
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs));
   await b.close();
   if (fails.length) { console.log('\n' + fails.length + ' FAILED'); process.exit(1); } else console.log('\nALL PASSED');

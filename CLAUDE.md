@@ -22,6 +22,15 @@ Backend is the Supabase project **L2i CRM** (ref `kbxpnmjxkxtordfzygjb`, London,
 6. Bump `BUILD_NUMBER` on every release.
 7. British English in all copy.
 
+## Design ("revision pages")
+
+- On a film, each round of script changes is printed on its own paper colour. Each pipeline stage is one of those colours (`--rev-*` tokens, set per stage with `data-stage` on list groups and board columns as `--stage`): New white, DM opened blue, Replied pink, Call booked yellow, Interested green, Proposal sent buff, Won goldenrod, closed and lost grey. Rows and cards show it as a 3px left edge; stage headers are a filled paper tab.
+- Base is a day-for-night blue (`--night`), text `--paper`, secondary `--fog`. The old token names (`--slate`, `--tally-amber`, `--bone`…) are remapped to these in the theme block at the end of the stylesheet; that block overrides the older rules above it, so restyle there.
+- **Do now** is the only light surface: a paper call sheet with today's date. Keep it the one bright thing.
+- Type is Archivo only: condensed (`font-stretch` ~70%) and heavy for headings and big numbers, normal width for everything else, tabular figures. No all-caps labels, no monospace, no `→` on buttons, no "A · B" meta strings (use `.tag` chips), no "Title — fragment" headings.
+- The main action on a screen is a paper-filled `.btn-primary`; everything else is outlined. Secondary account actions live in the header menu (`#appMenu`).
+- `openModal` replaces any open window; never stack overlays.
+
 ## How the data model works
 
 - Leads belong to a project. `stage` runs `new → dm_opened → replied → call_booked → …` (`LEAD_STAGES`). `new` with no `owner_id` is the shared **pool**.
