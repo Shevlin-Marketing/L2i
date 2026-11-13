@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { assets, renderPdf, sheetCss, sheetEdge, esc, fmt, plural } from './morning-report.mjs';
 
 const STAGES = [
-  ['new', 'New', 'white'], ['dm_opened', 'DM opened', 'blue'], ['replied', 'Replied', 'pink'],
+  ['new', 'New', 'white'], ['dm_opened', 'Message sent', 'blue'], ['replied', 'Replied', 'pink'],
   ['call_booked', 'Call booked', 'yellow'], ['closed_interested', 'Interested', 'green'],
   ['proposal_sent', 'Proposal sent', 'buff'], ['won', 'Won', 'gold'],
   ['closed_not_interested', 'Not interested', 'grey'], ['lost', 'Lost', 'grey'],
