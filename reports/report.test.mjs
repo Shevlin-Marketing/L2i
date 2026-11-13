@@ -39,3 +39,10 @@ const wout = new URL('./out/week-test.pdf', import.meta.url).pathname;
 await renderPdf(buildWeekHtml(solo, assets()), wout);
 assert.equal(Number(execFileSync('pdfinfo', [wout]).toString().match(/Pages:\s+(\d+)/)[1]), 1, 'solo week fits on one page');
 console.log('weekly report: ok');
+
+// Monday sheet built on a Friday: header shows the target day, activity tab shows the run day
+const mon = buildHtml(loadRow({ for_date: '2026-11-16', recent_label: 'Today, Friday', calls_today: [{ name: 'Test Lead', time: '10:00' }] }), {});
+assert.match(mon, /Monday, 16 November|Monday 16 November/);
+assert.match(mon, /Today, Friday/);
+assert.doesNotMatch(mon, />Yesterday</);
+console.log('monday sheet: ok');

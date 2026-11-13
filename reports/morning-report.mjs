@@ -28,6 +28,8 @@ export function loadRow(raw) {
     yeses_yesterday: num(row.yeses_yesterday),
     won_yesterday: num(row.won_yesterday),
     note: row.note || '',
+    for_date: row.for_date || '',
+    recent_label: row.recent_label || '',
   };
 }
 
@@ -59,7 +61,9 @@ body{background:var(--paper);position:relative;min-height:296mm;display:flex;fle
 .cond{font-stretch:68%;font-weight:850;letter-spacing:-.01em}
 header{background:var(--night);color:var(--paper);padding:11mm 16mm 9mm 22mm;display:grid;grid-template-columns:auto 1fr auto;gap:7mm;align-items:center;position:relative}
 header img{width:24mm;height:24mm;border-radius:50%;display:block}
-header h1{font-size:34pt;line-height:.9}
+header h1{font-size:34pt;line-height:.9;white-space:nowrap}
+header > div{min-width:0}
+header .date b{white-space:nowrap}
 header .sub{color:var(--fog);font-size:10.5pt;margin-top:2.5mm}
 header .date{text-align:right}
 header .date b{display:block;font-size:20pt;line-height:1}
@@ -96,7 +100,8 @@ export function sheetEdge() {
 }
 
 export function buildHtml(d, { now = new Date(), logo, font } = {}) {
-  const dateLong = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+  const sheetDay = /^\d{4}-\d{2}-\d{2}$/.test(d.for_date) ? new Date(d.for_date + 'T12:00:00Z') : now;
+  const dateLong = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(sheetDay);
   const poolDays = d.reps ? d.pool / (d.reps * DAILY_CAP) : 0;
   const poolDaysTxt = !d.pool ? 'The pool is empty' : !d.reps ? 'No approved reps yet' : poolDays >= 10 ? `${Math.floor(poolDays)} days of leads` : `${poolDays.toFixed(1).replace(/\.0$/, '')} ${poolDays === 1 ? 'day' : 'days'} of leads`;
 
@@ -111,7 +116,7 @@ ${sheetCss(font)}</style></head><body>
 ${sheetEdge()}
 <header>
   ${logo ? `<img src="data:image/png;base64,${logo}" alt="L2i Productions">` : '<div></div>'}
-  <div><h1 class="cond">Morning call sheet</h1><div class="sub">L2i Productions, Built Different outreach</div></div>
+  <div><h1 class="cond">${d.for_date ? 'Call sheet' : 'Morning call sheet'}</h1><div class="sub">L2i Productions, Built Different outreach</div></div>
   <div class="date"><b class="cond">${esc(dateLong.replace(/ \d{4}$/, ''))}</b><span>${esc(dateLong.match(/\d{4}$/)?.[0] || '')}</span></div>
 </header>
 <main>
@@ -131,7 +136,7 @@ ${sheetEdge()}
     ${tile('white', d.pool, 'Leads in the shared pool')}
   </div></section>
 
-  <section style="--rev:var(--rev-green)"><span class="tab cond">Yesterday</span><div class="tiles">
+  <section style="--rev:var(--rev-green)"><span class="tab cond">${esc(d.recent_label || 'Yesterday')}</span><div class="tiles">
     ${tile('blue', d.messages_sent_yesterday, 'Messages sent')}
     ${tile('green', d.yeses_yesterday, d.yeses_yesterday === 1 ? 'Person said yes' : 'People said yes')}
     ${tile('gold', d.won_yesterday, 'Won')}
