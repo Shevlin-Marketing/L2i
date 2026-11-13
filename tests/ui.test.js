@@ -32,7 +32,8 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   const thu = await p.evaluate(() => { const d = new Date(); d.setMonth(10, 5); if (d > new Date()) d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + ((4 - d.getDay() + 7) % 7 || 7)); d.setHours(15, 0, 0, 0); return localDateTimeStr(d); });
   ok(marcus.st === 'call_booked' && marcus.call === thu && marcus.perm === 'granted' && marcus.callChk === false, '"Thursday at 3pm" sent on 5 Nov is read as the Thursday after that day, from the chat\'s own date, not from today (' + marcus.st + ' ' + marcus.call + ')');
   ok(marcus.ph === '07700 900321' && /gave their number/.test(marcus.sig), 'the number they sent is saved as their phone');
-  ok(hale.st === 'dm_opened' && hale.ph === '07700 900456', 'our message with no reply yet → DM sent; our own text is not mistaken for theirs');
+  ok(hale.st === 'dm_opened' && hale.ph === '07700 900456', 'our message with no reply yet → Message sent; our own text is not mistaken for theirs');
+  ok(/they've seen it/.test(hale.sig), '"Seen" on the thread is read as seen (' + hale.sig + ')');
   ok(sofia.st === 'replied' && sofia.perm === 'granted' && jane.st === 'replied', 'a reply moves the lead to Replied, and a yes records permission');
   ok(by('@amelia.brooks').st === 'new' && rows.find(r => r.n === 'Daniel Brooks').st === 'new', 'leads with no messages stay new');
   { const got = await p.evaluate(() => { const ref = new Date(2026, 10, 10, 14, 0);   // Tue 10 Nov 2026, 14:00
@@ -138,28 +139,32 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   await p.click('#todayBtn'); await p.click('#dailyClaim'); await p.waitForTimeout(600);
   ok(await p.evaluate(() => todayCount()) === 100, 'claims exactly 100');
   ok(!(await p.$('.score-chip')) && !(await p.$('.chip-mutual')) && !/score/i.test(await p.textContent('#main')), 'no lead scores or mutual connections anywhere on the pipeline');
-  const pick = () => p.evaluate(() => state.leads.find(l => l.owner_id === 'u1' && l.stage === 'new' && l.permission_status === 'not_asked').id);
-  const get = id => p.evaluate(i => { const l = state.leads.find(x => x.id === i); return [l.stage, l.permission_status, !!l.do_not_contact, !!l.next_action_at]; }, id);
+  const pick = () => p.evaluate(() => state.leads.find(l => l.owner_id === 'u1' && l.stage === 'new' && !l.last_contacted_at).id);
+  const get = id => p.evaluate(i => { const l = state.leads.find(x => x.id === i); return [l.stage, !!l.seen_at, !!l.do_not_contact, !!l.next_action_at]; }, id);
+  ok(!(await p.$('[data-qa-copy]')) && !(await p.$('[data-qa="yes"]')) && !/Said yes|Copy message|Permission message/.test(await p.textContent('#main')), 'no copy-message or permission buttons on lead cards');
   const a = await pick();
   await p.click(`[data-qa="sent"][data-id="${a}"]`); await p.waitForTimeout(200);
-  ok((await get(a)).join() === 'dm_opened,asked,false,true', '"Message sent" logs the ask and sets a follow-up');
-  await p.click(`[data-qa="yes"][data-id="${a}"]`); await p.waitForTimeout(200);
-  ok((await get(a)).slice(0, 2).join() === 'replied,granted', '"Said yes" records permission');
+  ok((await get(a)).join() === 'dm_opened,false,false,true', '"Message sent" logs the first message as not seen yet, with a follow-up date');
+  ok(!(await p.$(`[data-lead-advance="${a}"]`)), 'no duplicate stage button where the quick buttons already move the lead');
+  ok(/Not seen yet/.test(await p.textContent('#main')) && /Message sent/.test(await p.textContent('#main')), 'the stage reads "Message sent" and the card says "Not seen yet"');
+  await p.click(`[data-qa="seen"][data-id="${a}"]`); await p.waitForTimeout(200);
+  ok((await get(a)).slice(0, 2).join() === 'dm_opened,true', '"Seen" marks it seen without moving the stage');
+  const a2 = await pick();
+  await p.click(`[data-qa="sent"][data-id="${a2}"]`); await p.waitForTimeout(200);
+  await p.click(`[data-qa="replied"][data-id="${a2}"]`); await p.waitForTimeout(200);
+  ok((await get(a2)).slice(0, 2).join() === 'replied,true', '"They replied" moves to Replied and counts as seen');
   const c = await pick();
   await p.click(`[data-qa="sent"][data-id="${c}"]`); await p.waitForTimeout(200);
   await p.click(`[data-qa="no"][data-id="${c}"]`); await p.waitForTimeout(300);
-  ok((await get(c)).slice(0, 3).join() === 'lost,declined,true', '"Said no" blocks further contact');
-  // copy & open, undo, follow-up cycle
+  ok((await get(c))[0] === 'lost' && (await get(c))[2] === true, '"Said no" blocks further contact');
+  // undo and the follow-up cycle
   const d = await pick();
-  await p.click(`[data-qa-copy="opener"][data-id="${d}"]`); await p.waitForTimeout(300);
-  await p.bringToFront();
-  ok(/Built Different/.test(await p.evaluate(() => navigator.clipboard.readText())) && /paid commercial arrangement/.test(await p.evaluate(() => navigator.clipboard.readText())), '"Copy message & open" copies the permission message');
   await p.click(`[data-qa="sent"][data-id="${d}"]`); await p.waitForTimeout(200);
   await p.click('#toastUndoBtn'); await p.waitForTimeout(300);
-  ok((await get(d)).join() === 'new,not_asked,false,false', 'Undo restores the lead');
+  ok((await get(d)).join() === 'new,false,false,false', 'Undo restores the lead');
   await p.click(`[data-qa="sent"][data-id="${d}"]`); await p.waitForTimeout(200);
   await p.evaluate(i => { state.leads.find(x => x.id === i).next_action_at = '2026-01-01'; renderMain(); }, d);
-  ok(!!(await p.$(`[data-qa-copy="followup"][data-id="${d}"]`)), 'due lead offers the follow-up message');
+  ok(!!(await p.$(`[data-qa="followed"][data-id="${d}"]`)), 'a due lead offers "Followed up"');
   await p.click(`[data-qa="followed"][data-id="${d}"]`); await p.waitForTimeout(200);
   await p.evaluate(i => { state.leads.find(x => x.id === i).next_action_at = '2026-01-01'; renderMain(); }, d);
   ok(!(await p.$(`[data-qa="followed"][data-id="${d}"]`)) && !!(await p.$(`[data-qa="noreply"][data-id="${d}"]`)), 'only one follow-up, then close');
@@ -167,15 +172,15 @@ const ok = (cond, label) => { console.log((cond ? 'PASS ' : 'FAIL ') + label); i
   ok((await get(d))[0] === 'lost', '"No reply — close" closes the lead');
   ok(/sent today/.test(await p.textContent('#repStrip')), 'rep progress strip shows');
   const u = await pick();
-  ok(!!(await p.$(`[data-qa-copy="opener"][data-id="${u}"]`)), 'every lead offers the message straight away, with no scoring step');
   await p.click(`[data-qa="sent"][data-id="${u}"]`); await p.waitForTimeout(300);
   ok((await get(u))[0] === 'dm_opened', '"Message sent" works without scoring the lead');
-  // permission gate
+  // no permission gate: a call can be booked straight away
   await p.evaluate(i => openLeadModal(i), u); await p.waitForSelector('#f_stage');
-  ok(!(await p.$('[data-score]')) && !(await p.$('#f_mutual')) && !!(await p.$('#pitchText')), 'lead has no score checklist or mutual field, and the message is shown straight away');
+  ok(!(await p.$('[data-score]')) && !(await p.$('#f_mutual')) && !(await p.$('#pitchText')) && !(await p.$('#f_perm')) && !!(await p.$('#f_seen')), 'lead has no score, mutual field, permission message or permission field; it has a Seen tick box');
   await p.selectOption('#f_stage', 'call_booked'); await p.fill('#f_calldate', '2026-12-01T10:00');
-  await p.click('#mSave'); await p.waitForTimeout(300);
-  ok(/permission/i.test(await p.textContent('#toast')), 'call cannot be booked without recorded permission');
+  await p.click('#mSave'); await p.waitForTimeout(400);
+  ok((await get(u))[0] === 'call_booked' && (await get(u))[1] === true, 'a call can be booked without a permission step, and a booked call counts as seen');
+  ok(await p.evaluate(() => !rowSeen({ _shots: [{ kind: 'messages', seen: false }], stage: 'dm_opened' }) && rowSeen({ _shots: [{ kind: 'messages', seen: true }], stage: 'dm_opened' })), 'imports mark a lead seen only when the thread shows "Seen" or they replied');
   await p.evaluate(() => closeModal());
   await p.click('[data-pipeline="reports"]'); await p.waitForTimeout(300);
   ok(!!(await p.$('#outreachReport')) && /Ayden/.test(await p.textContent('#outreachReport')), 'outreach report lists rep activity');
