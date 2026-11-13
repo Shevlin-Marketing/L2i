@@ -12,6 +12,7 @@ assert.match(html, /2,350/); assert.match(html, /7\.8 days of leads/);
 assert.match(html, /data:image\/png;base64,iVBOR/, 'logo embedded');
 assert.match(html, /Log how the last call went/);
 assert.doesNotMatch(html, /→| · /);
+assert.match(html, /Calls logged/); assert.doesNotMatch(html, /said yes/i);
 assert.equal(firstThing(loadRow({ calls_today: [], calls_to_log: [], pool: 0 })), 'The pool is empty. Import a fresh batch of screenshots so reps have leads to claim.');
 assert.match(buildHtml(loadRow({ pool: 0, reps: 1 }), {}), /The pool is empty/);
 assert.match(buildHtml(loadRow({ calls_to_log: '[{"name":"<b>x</b>","was":"Wed","rep":"A"}]' }), {}), /&lt;b&gt;x/, 'escapes names');
@@ -28,7 +29,9 @@ const { loadWeek, buildWeekHtml, weekFocus } = await import('./weekly-report.mjs
 const w = loadWeek(readFileSync(new URL('./sample-week.json', import.meta.url), 'utf8'));
 const wh = buildWeekHtml(w, { ...assets(), now: new Date('2026-11-13T17:23:00Z') });
 assert.match(wh, /Sat 7 Nov to Fri 13 Nov/);
-assert.match(wh, /6 of 20 messaged said yes/);
+assert.match(wh, /22 leads worked, 7 replied/);
+assert.doesNotMatch(wh, /said yes/i);
+assert.match(buildWeekHtml(loadWeek({ title: 'Four weeks in review' }), {}), /Four weeks in review[\s\S]*These four weeks/);
 assert.match(wh, /Owen Suth/); assert.match(wh, /Jonathan Low/);
 assert.match(wh, /By rep/, 'rep table shown for a team');
 assert.doesNotMatch(buildWeekHtml(loadWeek({ reps: [{ rep: 'A' }] }), {}), /By rep/, 'no rep table for one person');

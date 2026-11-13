@@ -10,5 +10,5 @@ select
   (select count(*) from public.profiles where approved and role in ('owner','team_leader','business_development','setter')) as reps,
   (select count(*) from public.profiles where not approved) as awaiting_approval,
   (select count(*) from l, d where last_contacted_at >= d.t0 - interval '1 day' and last_contacted_at < d.t0) as messages_sent_yesterday,
-  (select count(*) from l, d where permission_at >= d.t0 - interval '1 day' and permission_at < d.t0) as yeses_yesterday,
+  (select count(*) from l, d where call_outcome_at >= d.t0 - interval '1 day' and call_outcome_at < d.t0) as calls_logged_yesterday,
   (select count(*) from l, d where call_outcome = 'won' and call_outcome_at >= d.t0 - interval '1 day' and call_outcome_at < d.t0) as won_yesterday;

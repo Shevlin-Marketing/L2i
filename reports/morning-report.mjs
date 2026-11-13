@@ -25,7 +25,7 @@ export function loadRow(raw) {
     reps: num(row.reps),
     awaiting_approval: num(row.awaiting_approval),
     messages_sent_yesterday: num(row.messages_sent_yesterday),
-    yeses_yesterday: num(row.yeses_yesterday),
+    calls_logged_yesterday: num(row.calls_logged_yesterday),
     won_yesterday: num(row.won_yesterday),
     note: row.note || '',
     for_date: row.for_date || '',
@@ -138,7 +138,7 @@ ${sheetEdge()}
 
   <section style="--rev:var(--rev-green)"><span class="tab cond">${esc(d.recent_label || 'Yesterday')}</span><div class="tiles">
     ${tile('blue', d.messages_sent_yesterday, 'Messages sent')}
-    ${tile('green', d.yeses_yesterday, d.yeses_yesterday === 1 ? 'Person said yes' : 'People said yes')}
+    ${tile('yellow', d.calls_logged_yesterday, d.calls_logged_yesterday === 1 ? 'Call logged' : 'Calls logged')}
     ${tile('gold', d.won_yesterday, 'Won')}
   </div></section>
 

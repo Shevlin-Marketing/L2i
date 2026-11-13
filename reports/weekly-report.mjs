@@ -18,8 +18,8 @@ export function loadWeek(raw) {
   if (Array.isArray(row)) row = row[0] || {};
   const list = v => (typeof v === 'string' ? JSON.parse(v) : v) || [];
   const num = v => Number(v ?? 0) || 0;
-  const out = { period_from: row.period_from || '', period_to: row.period_to || '', note: row.note || '' };
-  for (const k of ['leads_added', 'messaged', 'said_yes', 'said_no', 'calls_due_this_week', 'calls_logged', 'won', 'no_shows', 'replies_waiting', 'follow_ups_due', 'missing_contact']) out[k] = num(row[k]);
+  const out = { period_from: row.period_from || '', period_to: row.period_to || '', note: row.note || '', title: row.title || 'Week in review' };
+  for (const k of ['leads_added', 'active', 'messaged', 'replied', 'calls_held', 'interested', 'won', 'no_shows', 'replies_waiting', 'follow_ups_due', 'missing_contact']) out[k] = num(row[k]);
   for (const k of ['pipeline', 'calls_next_week', 'calls_to_log', 'reps']) out[k] = list(row[k]);
   return out;
 }
@@ -28,26 +28,28 @@ export function weekFocus(d) {
   if (d.calls_to_log.length) return `Log the ${plural(d.calls_to_log.length, 'call', 'calls')} still waiting for an outcome before Monday, so every follow-up goes out on time.`;
   if (d.calls_next_week.length) return `${plural(d.calls_next_week.length, 'call is', 'calls are')} booked for next week. Send each a confirmation the day before.`;
   if (d.replies_waiting || d.follow_ups_due) return `Clear the ${plural(d.replies_waiting + d.follow_ups_due, 'reply and follow-up', 'replies and follow-ups')} waiting before starting new conversations.`;
-  if (!d.messaged) return 'No messages went out this week. Claim leads and open conversations on Monday.';
+  if (!d.messaged) return `No messages went out ${d.title === 'Week in review' ? 'this week' : 'in these four weeks'}. Claim leads and open conversations on Monday.`;
   return 'Keep the pace: claim leads each morning and answer replies the same day.';
 }
 
 export function buildWeekHtml(d, { now = new Date(), logo, font } = {}) {
   const tidy = s => String(s).replace(/ 0(\d) /, ' $1 ');
-  const period = d.period_from ? `${tidy(d.period_from)} to ${tidy(d.period_to)}` : '';
+  const long = d.title.length > 16;
+  const short = s => long ? String(s).replace(/^[A-Za-z]{3} /, '') : s;
+  const period = d.period_from ? `${short(tidy(d.period_from))} to ${short(tidy(d.period_to))}` : '';
   const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric' }).format(now);
   const counts = Object.fromEntries(d.pipeline.map(p => [p.stage, Number(p.n) || 0]));
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const shown = STAGES.filter(([k]) => counts[k]);
   const bar = total ? shown.map(([k, , c]) => `<i style="flex:${counts[k]};background:var(--rev-${c})"></i>`).join('') : '<i style="flex:1;background:#E3E7EF"></i>';
   const legend = shown.length ? shown.map(([k, label, c]) => `<span class="key"><i style="background:var(--rev-${c})"></i>${esc(label)} <b>${fmt(counts[k])}</b></span>`).join('') : '<span class="key">No leads yet</span>';
-  const yesRate = d.messaged ? `${fmt(d.said_yes)} of ${fmt(d.messaged)} messaged said yes` : 'Nobody messaged yet';
+  const yesRate = d.active ? `${fmt(d.active)} ${d.active === 1 ? 'lead' : 'leads'} worked, ${fmt(d.replied)} replied` : 'No leads worked in this period';
   const tile = (rev, n, label) => `<div class="tile" style="--rev:var(--rev-${rev})"><b>${fmt(n)}</b><span>${label}</span></div>`;
   const next = d.calls_next_week.map(c => `<tr><td class="t">${esc(tidy(c.when))}</td><td>${esc(c.name || 'No name')}</td><td>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">No number</span>'}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
   const toLog = d.calls_to_log.map(c => `<tr><td class="t">${esc(tidy(c.was))}</td><td>${esc(c.name || 'No name')}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
-  const reps = d.reps.map(r => `<tr><td>${esc(r.rep || 'No name')}</td><td class="n">${fmt(r.messaged)}</td><td class="n">${fmt(r.said_yes)}</td><td class="n">${fmt(r.calls_ahead)}</td><td class="n">${fmt(r.won)}</td></tr>`).join('');
+  const reps = d.reps.map(r => `<tr><td>${esc(r.rep || 'No name')}</td><td class="n">${fmt(r.messaged)}</td><td class="n">${fmt(r.replied)}</td><td class="n">${fmt(r.calls_ahead)}</td><td class="n">${fmt(r.won)}</td></tr>`).join('');
 
-  return `<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><title>L2i week in review, ${esc(period)}</title>
+  return `<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><title>L2i ${esc(d.title.toLowerCase())}, ${esc(period)}</title>
 <style>${sheetCss(font)}
 .bar{display:flex;height:9mm;border-radius:1.6mm;overflow:hidden;border:0.3mm solid var(--line);margin:1mm 0 3mm}
 .bar i{display:block;min-width:2mm}
@@ -76,22 +78,22 @@ main{padding-top:7mm}
 ${sheetEdge()}
 <header>
   ${logo ? `<img src="data:image/png;base64,${logo}" alt="L2i Productions">` : '<div></div>'}
-  <div><h1 class="cond">Week in review</h1><div class="sub">L2i Productions, Built Different outreach</div></div>
+  <div><h1 class="cond"${long ? ' style="font-size:27pt"' : ''}>${esc(d.title)}</h1><div class="sub">L2i Productions, Built Different outreach</div></div>
   <div class="date"><b class="cond">${esc(period)}</b><span>${esc(year)}</span></div>
 </header>
 <main>
   <div class="first"><span class="cond">Before Monday</span><p>${esc(d.note || weekFocus(d))}</p></div>
 
-  <section style="--rev:var(--rev-blue)"><span class="tab cond">The week</span><div class="tiles six">
-    ${tile('white', d.leads_added, 'Leads added')}
-    ${tile('blue', d.messaged, 'People messaged')}
-    ${tile('green', d.said_yes, d.said_yes === 1 ? 'Person said yes' : 'People said yes')}
-    ${tile('yellow', d.calls_due_this_week, 'Calls that were due')}
-    ${tile('buff', d.calls_logged, 'Call outcomes logged')}
+  <section style="--rev:var(--rev-blue)"><span class="tab cond">${d.title === 'Week in review' ? 'This week' : 'These four weeks'}</span><div class="tiles six">
+    ${tile('blue', d.messaged, d.messaged === 1 ? 'Person messaged' : 'People messaged')}
+    ${tile('pink', d.replied, 'Replied')}
+    ${tile('yellow', d.calls_held, d.calls_held === 1 ? 'Call held' : 'Calls held')}
+    ${tile('green', d.interested, 'Interested after a call')}
     ${tile('gold', d.won, 'Won')}
+    ${tile('white', d.leads_added, 'Leads added to the CRM')}
   </div></section>
 
-  <section style="--rev:var(--rev-pink)"><span class="tab cond">Pipeline now</span><div class="sheet">
+  <section style="--rev:var(--rev-pink)"><span class="tab cond">Where these leads are now</span><div class="sheet">
     <div class="rate">${esc(yesRate)}</div>
     <div class="bar">${bar}</div>
     <div class="legend">${legend}</div>
@@ -111,7 +113,7 @@ ${sheetEdge()}
   </section>
 
   ${d.reps.length > 1 ? `<section style="--rev:var(--rev-green)"><span class="tab cond">By rep</span><div class="sheet">
-    ${reps ? `<table><tr><th>Rep</th><th class="n">Messaged</th><th class="n">Said yes</th><th class="n">Calls ahead</th><th class="n">Won</th></tr>${reps}</table>` : '<p class="empty">No approved reps yet.</p>'}
+    ${reps ? `<table><tr><th>Rep</th><th class="n">Messaged</th><th class="n">Replied</th><th class="n">Calls ahead</th><th class="n">Won</th></tr>${reps}</table>` : '<p class="empty">No approved reps yet.</p>'}
   </div></section>` : ''}
 
   <footer><span>L2i Productions, Live 2 Inspire</span><span>From the L2i CRM at ${esc(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(now))}</span></footer>
