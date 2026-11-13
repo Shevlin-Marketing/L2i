@@ -22,3 +22,20 @@ assert.ok(statSync(out).size > 20000);
 const pages = Number(execFileSync('pdfinfo', [out]).toString().match(/Pages:\s+(\d+)/)[1]);
 assert.equal(pages, 1, 'sample fits on one page');
 console.log('morning report: ok');
+
+// Weekly report
+const { loadWeek, buildWeekHtml, weekFocus } = await import('./weekly-report.mjs');
+const w = loadWeek(readFileSync(new URL('./sample-week.json', import.meta.url), 'utf8'));
+const wh = buildWeekHtml(w, { ...assets(), now: new Date('2026-11-13T17:23:00Z') });
+assert.match(wh, /Sat 7 Nov to Fri 13 Nov/);
+assert.match(wh, /6 of 20 messaged said yes/);
+assert.match(wh, /Owen Suth/); assert.match(wh, /Jonathan Low/);
+assert.match(wh, /By rep/, 'rep table shown for a team');
+assert.doesNotMatch(buildWeekHtml(loadWeek({ reps: [{ rep: 'A' }] }), {}), /By rep/, 'no rep table for one person');
+assert.match(weekFocus(loadWeek({})), /No messages went out/);
+assert.doesNotMatch(wh, /→| · /);
+const solo = { ...w, reps: w.reps.slice(0, 1) };
+const wout = new URL('./out/week-test.pdf', import.meta.url).pathname;
+await renderPdf(buildWeekHtml(solo, assets()), wout);
+assert.equal(Number(execFileSync('pdfinfo', [wout]).toString().match(/Pages:\s+(\d+)/)[1]), 1, 'solo week fits on one page');
+console.log('weekly report: ok');

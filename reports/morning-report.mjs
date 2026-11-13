@@ -31,9 +31,9 @@ export function loadRow(raw) {
   };
 }
 
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fmt = n => Number(n).toLocaleString('en-GB');
-const plural = (n, one, many) => `${fmt(n)} ${n === 1 ? one : many}`;
+export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+export const fmt = n => Number(n).toLocaleString('en-GB');
+export const plural = (n, one, many) => `${fmt(n)} ${n === 1 ? one : many}`;
 
 export function firstThing(d) {
   if (d.calls_to_log.length) return `Log how ${d.calls_to_log.length === 1 ? 'the last call' : `the ${d.calls_to_log.length} past calls`} went, so nobody is left waiting for a follow-up.`;
@@ -45,26 +45,16 @@ export function firstThing(d) {
   return 'The pool is empty. Import a fresh batch of screenshots so reps have leads to claim.';
 }
 
-export function buildHtml(d, { now = new Date(), logo, font } = {}) {
-  const dateLong = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
-  const poolDays = d.reps ? d.pool / (d.reps * DAILY_CAP) : 0;
-  const poolDaysTxt = !d.pool ? 'The pool is empty' : !d.reps ? 'No approved reps yet' : poolDays >= 10 ? `${Math.floor(poolDays)} days of leads` : `${poolDays.toFixed(1).replace(/\.0$/, '')} ${poolDays === 1 ? 'day' : 'days'} of leads`;
-
-  const callRows = d.calls_today.map(c => `<tr><td class="t">${esc(c.time)}</td><td>${esc(c.name || 'No name')}</td><td>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">No number</span>'}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
-  const logRows = d.calls_to_log.map(c => `<tr><td class="t">${esc(c.was)}</td><td>${esc(c.name || 'No name')}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
-
-  const tile = (rev, n, label) => `<div class="tile" style="--rev:var(--rev-${rev})"><b>${fmt(n)}</b><span>${label}</span></div>`;
-
-  return `<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><title>L2i morning call sheet, ${esc(dateLong)}</title>
-<style>
-${font ? `@font-face{font-family:Archivo;src:url(data:font/woff2;base64,${font}) format('woff2');font-weight:100 900;font-stretch:62% 125%;}` : ''}
-@page{size:A4;margin:0}
+export function sheetCss(font) {
+  return `${font ? `@font-face{font-family:Archivo;src:url(data:font/woff2;base64,${font}) format('woff2');font-weight:100 900;font-stretch:62% 125%;}` : ''}
+@page{size:A4;margin:12mm 0 10mm}
+@page :first{margin:0}
 :root{--night:#0F1A33;--night-2:#16223F;--paper:#F2F4F8;--fog:#9BA8C7;--ink:#0F1A33;--ink-2:#4A5677;--line:#D5DAE6;
 --rev-white:#FFFFFF;--rev-blue:#93BDF2;--rev-pink:#F2A9C4;--rev-yellow:#F3DC6E;--rev-green:#9ED8A8;--rev-buff:#E6CFA6;--rev-gold:#E9B649;--rev-grey:#7C88A6}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:210mm;font-family:Archivo,'Helvetica Neue',Arial,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{background:var(--paper);position:relative;min-height:296mm;display:flex;flex-direction:column}
-.page-edge{position:absolute;left:0;top:0;bottom:0;width:7mm;display:flex;flex-direction:column;z-index:2}
+.page-edge{position:fixed;left:0;top:0;bottom:0;width:7mm;display:flex;flex-direction:column;z-index:2}
 .page-edge i{flex:1}
 .cond{font-stretch:68%;font-weight:850;letter-spacing:-.01em}
 header{background:var(--night);color:var(--paper);padding:11mm 16mm 9mm 22mm;display:grid;grid-template-columns:auto 1fr auto;gap:7mm;align-items:center;position:relative}
@@ -98,8 +88,27 @@ a{color:inherit;text-decoration:none;border-bottom:0.3mm solid var(--rev-blue)}
 .pool b{font-stretch:68%;font-weight:850;font-size:22pt;line-height:1;display:block}
 .pool p{font-size:10pt;color:var(--ink-2);margin-top:1.5mm;line-height:1.35}
 footer{margin-top:auto;display:flex;justify-content:space-between;font-size:8.5pt;color:var(--ink-2);border-top:0.3mm solid var(--line);padding-top:2.5mm}
-</style></head><body>
-<div class="page-edge">${['white','blue','pink','yellow','green','buff','gold','grey'].map(c=>`<i style="background:var(--rev-${c})"></i>`).join('')}</div>
+`;
+}
+
+export function sheetEdge() {
+  return `<div class="page-edge">${['white','blue','pink','yellow','green','buff','gold','grey'].map(c=>`<i style="background:var(--rev-${c})"></i>`).join('')}</div>`;
+}
+
+export function buildHtml(d, { now = new Date(), logo, font } = {}) {
+  const dateLong = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+  const poolDays = d.reps ? d.pool / (d.reps * DAILY_CAP) : 0;
+  const poolDaysTxt = !d.pool ? 'The pool is empty' : !d.reps ? 'No approved reps yet' : poolDays >= 10 ? `${Math.floor(poolDays)} days of leads` : `${poolDays.toFixed(1).replace(/\.0$/, '')} ${poolDays === 1 ? 'day' : 'days'} of leads`;
+
+  const callRows = d.calls_today.map(c => `<tr><td class="t">${esc(c.time)}</td><td>${esc(c.name || 'No name')}</td><td>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">No number</span>'}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
+  const logRows = d.calls_to_log.map(c => `<tr><td class="t">${esc(c.was)}</td><td>${esc(c.name || 'No name')}</td><td>${esc(c.rep || 'Unassigned')}</td></tr>`).join('');
+
+  const tile = (rev, n, label) => `<div class="tile" style="--rev:var(--rev-${rev})"><b>${fmt(n)}</b><span>${label}</span></div>`;
+
+  return `<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><title>L2i morning call sheet, ${esc(dateLong)}</title>
+<style>
+${sheetCss(font)}</style></head><body>
+${sheetEdge()}
 <header>
   ${logo ? `<img src="data:image/png;base64,${logo}" alt="L2i Productions">` : '<div></div>'}
   <div><h1 class="cond">Morning call sheet</h1><div class="sub">L2i Productions, Built Different outreach</div></div>
