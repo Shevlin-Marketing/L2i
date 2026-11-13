@@ -58,8 +58,13 @@ export function buildWeekHtml(d, { now = new Date(), logo, font } = {}) {
 .rate{font-stretch:68%;font-weight:850;font-size:15pt;line-height:1;margin-bottom:2.5mm}
 td.n,th.n{text-align:right;padding-right:0;width:22mm}
 .tiles.six{grid-template-columns:repeat(3,1fr)}
-section{margin-bottom:4mm}
-.first{margin-bottom:5mm;padding:4mm 6mm}
+section{margin-bottom:3.5mm}
+.tab{font-size:12pt}
+.tiles.six .tile b{font-size:21pt}
+.tiles.six{gap:2.5mm}
+.rate{font-size:13pt;margin-bottom:1.5mm}
+.bar{height:7mm;margin:0 0 2.5mm}
+.first{margin-bottom:4mm;padding:3.5mm 6mm}
 .tile b{font-size:24pt}
 .tile{padding:2.4mm 4mm 2.8mm}
 td{padding:1.8mm 3mm 1.8mm 0}

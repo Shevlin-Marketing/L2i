@@ -64,7 +64,7 @@ header .sub{color:var(--fog);font-size:10.5pt;margin-top:2.5mm}
 header .date{text-align:right}
 header .date b{display:block;font-size:20pt;line-height:1}
 header .date span{color:var(--fog);font-size:9.5pt}
-main{flex:1;display:flex;flex-direction:column;padding:8mm 16mm 7mm 22mm}
+main{display:block;padding:8mm 16mm 3mm 22mm}
 .first{background:var(--night);color:var(--paper);border-radius:2.5mm;padding:4.5mm 6mm;margin-bottom:6mm;display:grid;grid-template-columns:auto 1fr;gap:5mm;align-items:center}
 .first .cond{font-size:15pt;color:var(--rev-yellow);line-height:1}
 .first p{font-size:12pt;line-height:1.35}
@@ -87,7 +87,7 @@ a{color:inherit;text-decoration:none;border-bottom:0.3mm solid var(--rev-blue)}
 .two > *{min-width:0}
 .pool b{font-stretch:68%;font-weight:850;font-size:22pt;line-height:1;display:block}
 .pool p{font-size:10pt;color:var(--ink-2);margin-top:1.5mm;line-height:1.35}
-footer{margin-top:auto;display:flex;justify-content:space-between;font-size:8.5pt;color:var(--ink-2);border-top:0.3mm solid var(--line);padding-top:2.5mm}
+footer{margin-top:4mm;display:flex;justify-content:space-between;font-size:8.5pt;color:var(--ink-2);border-top:0.3mm solid var(--line);padding-top:2.5mm}
 `;
 }
 
