@@ -1,0 +1,11 @@
+{
+  "name": "l2i-morning-report",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sample": "node morning-report.mjs sample.json out/sample.pdf"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0"
+  }
+}

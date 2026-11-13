@@ -2,7 +2,7 @@
   "name": "l2i-crm-tests",
   "private": true,
   "scripts": {
-    "test": "node migration.test.mjs && node make-shots.js && node ui.test.js"
+    "test": "node migration.test.mjs && node make-shots.js && node ui.test.js && cd ../reports && npm install --silent && node report.test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.2.17",
